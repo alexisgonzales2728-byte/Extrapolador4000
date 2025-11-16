@@ -5,15 +5,16 @@ const puppeteer = require('puppeteer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
-
-// Configurar CORS para permitir tu dominio
+// ✅ SOLUCIÓN: Configurar CORS UNA SOLA VEZ al inicio
 app.use(cors({
-    origin: ['https://ciber7erroristaschk.com', 'http://localhost:3000'],
-    methods: ['GET', 'POST'],
+    origin: ['https://ciber7erroristaschk.com', 'http://localhost:3000', 'http://localhost:5500'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
+
+// ✅ Manejar preflight OPTIONS requests
+app.options('*', cors());
 
 app.use(express.json());
 
@@ -24,6 +25,11 @@ const SHADOWCHK_URL = process.env.SHADOWCHK_URL || 'https://www.shadowchk.com/to
 
 // Ruta para buscar BINs
 app.post('/api/search-bin', async (req, res) => {
+    // ✅ Agregar headers CORS manualmente por si acaso
+    res.header('Access-Control-Allow-Origin', 'https://ciber7erroristaschk.com');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
     const { bin } = req.body;
     
     console.log('Buscando BIN:', bin);
@@ -146,6 +152,7 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Backend running on port ${PORT}`);
-    console.log(`📧 Email configurado: ${SHADOWCHK_EMAIL ? '✅' : '❌'}`);
+    console.log(`📧 Email configurado: ${SHHADOWCHK_EMAIL ? '✅' : '❌'}`);
     console.log(`🔗 URL configurada: ${SHADOWCHK_URL ? '✅' : '❌'}`);
+    console.log(`🌐 CORS configurado para: https://ciber7erroristaschk.com`);
 });

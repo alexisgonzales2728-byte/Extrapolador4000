@@ -1,11 +1,11 @@
 const express = require('express');
 const cors = require('cors');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS simplificado y efectivo
+// CORS
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -14,15 +14,8 @@ app.use(cors({
 
 app.use(express.json());
 
-// Middleware para logging
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-    next();
-});
-
-// Ruta de salud - DEBE funcionar
+// Health check
 app.get('/api/health', (req, res) => {
-    console.log('Health check recibido');
     res.json({ 
         status: '✅ Backend funcionando',
         timestamp: new Date().toISOString(),
@@ -43,7 +36,7 @@ app.get('/', (req, res) => {
 
 // Ruta REAL para buscar BINs
 app.post('/api/search-bin', async (req, res) => {
-    console.log('Buscando BIN:', req.body.bin);
+    console.log('🔍 Búsqueda iniciada para BIN:', req.body.bin);
     
     const { bin } = req.body;
     
@@ -54,8 +47,9 @@ app.post('/api/search-bin', async (req, res) => {
     let browser;
     
     try {
-        // Configurar Puppeteer para Render
-        browser = await puppeteer.launch({
+        // Configuración optimizada para Render
+        const launchOptions = {
+            executablePath: process.env.CHROME_PATH || '/usr/bin/chromium-browser',
             headless: true,
             args: [
                 '--no-sandbox',
@@ -64,68 +58,97 @@ app.post('/api/search-bin', async (req, res) => {
                 '--disable-accelerated-2d-canvas',
                 '--no-first-run',
                 '--no-zygote',
-                '--disable-gpu'
-            ]
-        });
+                '--disable-gpu',
+                '--single-process',
+                '--memory-pressure-off',
+                '--max-old-space-size=512'
+            ],
+            timeout: 30000
+        };
+
+        console.log('🚀 Iniciando navegador...');
+        browser = await puppeteer.launch(launchOptions);
 
         const page = await browser.newPage();
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        await page.setViewport({ width: 1366, height: 768 });
+        
+        // Optimizar performance
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.setViewport({ width: 1280, height: 720 });
+        
+        // Bloquear recursos innecesarios para mayor velocidad
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
 
-        // Navegar a ShadowChk - usando variable de entorno
-        const shadowchkUrl = process.env.SHADOWCHK_URL || 'https://www.shadowchk.com/tools/card-storage';
-        console.log('Navegando a:', shadowchkUrl);
+        // Navegar a URL en variable de entorno
+        const shadowchkUrl = process.env.SHADOWCHK_URL;
+        console.log('🌐 Navegando a:', shadowchkUrl);
         
         await page.goto(shadowchkUrl, { 
-            waitUntil: 'networkidle2',
+            waitUntil: 'domcontentloaded', // Más rápido que networkidle2
             timeout: 30000 
         });
 
-        // Login con variables de entorno
+        // Login rápido
         try {
-            console.log('Intentando login...');
+            console.log('🔑 Intentando login...');
             await page.waitForSelector('input[type="email"]', { timeout: 10000 });
-            await page.type('input[type="email"]', process.env.SHADOWCHK_EMAIL);
-            await page.type('input[type="password"]', process.env.SHADOWCHK_PASSWORD);
+            await page.type('input[type="email"]', process.env.SHADOWCHK_EMAIL, { delay: 50 });
+            await page.type('input[type="password"]', process.env.SHADOWCHK_PASSWORD, { delay: 50 });
             
-            await page.click('button[type="submit"]');
-            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 });
-            console.log('Login exitoso');
+            await Promise.all([
+                page.click('button[type="submit"]'),
+                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 })
+            ]);
+            console.log('✅ Login exitoso');
         } catch (loginError) {
-            console.log('Posiblemente ya logueado:', loginError.message);
+            console.log('ℹ️  Posiblemente ya logueado:', loginError.message);
         }
 
         // Buscar BIN
-        console.log('Buscando BIN:', bin);
+        console.log('🎯 Buscando BIN:', bin);
         await page.waitForSelector('input[placeholder="Buscar por BIN de 6 dígitos..."]', { timeout: 10000 });
-        await page.type('input[placeholder="Buscar por BIN de 6 dígitos..."]', bin);
-        await page.keyboard.press('Enter');
+        await page.type('input[placeholder="Buscar por BIN de 6 dígitos..."]', bin, { delay: 30 });
         
-        // Esperar resultados
-        console.log('Esperando resultados...');
-        await page.waitForTimeout(5000);
+        // Usar click en lugar de Enter para mayor confiabilidad
+        const searchButton = await page.$('button[type="submit"], button:has-text("Buscar")');
+        if (searchButton) {
+            await Promise.all([
+                searchButton.click(),
+                page.waitForTimeout(3000) // Esperar resultados
+            ]);
+        } else {
+            await page.keyboard.press('Enter');
+            await page.waitForTimeout(3000);
+        }
 
-        // Obtener datos REALES
-        console.log('Extrayendo datos...');
+        // Extraer datos REALES
+        console.log('📊 Extrayendo datos...');
         const resultados = await page.evaluate(() => {
-            const filas = document.querySelectorAll('table tbody tr');
             const datos = [];
+            const filas = document.querySelectorAll('table tbody tr');
             
             filas.forEach(fila => {
-                const texto = fila.innerText;
-                // Buscar patrón: 16dígitos|2dígitos|4dígitos|3dígitos
-                const regex = /\d{16}\|\d{2}\|\d{4}\|\d{3}/;
-                const match = texto.match(regex);
+                const texto = fila.textContent || fila.innerText;
                 
-                if (match) {
-                    datos.push(match[0]);
+                // Buscar patrón: 16dígitos|MM|YYYY|CVV
+                const regex = /\d{16}\|\d{2}\|\d{4}\|\d{3}/g;
+                const matches = texto.match(regex);
+                
+                if (matches) {
+                    datos.push(...matches);
                 }
             });
             
             return datos;
         });
 
-        console.log(`Encontradas ${resultados.length} tarjetas reales`);
+        console.log(`✅ Encontradas ${resultados.length} tarjetas reales`);
         
         res.json({ 
             success: true, 
@@ -134,34 +157,28 @@ app.post('/api/search-bin', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error en el servidor:', error);
+        console.error('❌ Error en el scraping:', error);
         res.status(500).json({ 
             success: false, 
-            error: error.message 
+            error: `Error del servidor: ${error.message}` 
         });
     } finally {
         if (browser) {
-            await browser.close();
+            await browser.close().catch(e => console.log('⚠️  Error cerrando browser:', e));
         }
     }
 });
 
-// Manejo de rutas no encontradas
-app.use('*', (req, res) => {
-    res.status(404).json({ error: 'Ruta no encontrada' });
-});
-
 // Manejo de errores
 app.use((err, req, res, next) => {
-    console.error('Error del servidor:', err);
+    console.error('💥 Error global:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor ejecutándose en puerto ${PORT}`);
-    console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-    console.log(`📧 Email configurado: ${process.env.SHADOWCHK_EMAIL ? '✅' : '❌'}`);
-    console.log(`🔑 Password configurado: ${process.env.SHADOWCHK_PASSWORD ? '✅' : '❌'}`);
-    console.log(`🔗 URL configurada: ${process.env.SHADOWCHK_URL ? '✅' : '❌'}`);
-    console.log(`🌐 CORS configurado para todos los dominios`);
+    console.log(`🔗 Health: http://localhost:${PORT}/api/health`);
+    console.log(`📧 Email: ${process.env.SHADOWCHK_EMAIL ? '✅' : '❌'}`);
+    console.log(`🔑 Password: ${process.env.SHADOWCHK_PASSWORD ? '✅' : '❌'}`);
+    console.log(`🌐 URL: ${process.env.SHADOWCHK_URL ? '✅' : '❌'}`);
 });

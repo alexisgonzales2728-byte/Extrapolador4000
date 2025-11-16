@@ -1,0 +1,27 @@
+{
+  "name": "extrapolador-backend",
+  "description": "Backend con Puppeteer para extrapolador de tarjetas",
+  "type": "web-service",
+  "build": {
+    "type": "dockerfile"
+  },
+  "deploy": {
+    "replicas": 1,
+    "resources": {
+      "cpu": 500,
+      "memory": 512
+    }
+  },
+  "ports": [
+    {
+      "port": 3000,
+      "protocol": "HTTP"
+    }
+  ],
+  "healthCheck": {
+    "path": "/api/health",
+    "interval": 30,
+    "timeout": 10,
+    "retries": 3
+  }
+}

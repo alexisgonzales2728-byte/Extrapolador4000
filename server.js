@@ -8,6 +8,15 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Configurar CORS para permitir tu dominio
+app.use(cors({
+    origin: ['https://ciber7erroristaschk.com', 'http://localhost:3000'],
+    methods: ['GET', 'POST'],
+    credentials: true
+}));
+
+app.use(express.json());
+
 // Todas las credenciales en variables de entorno
 const SHADOWCHK_EMAIL = process.env.SHADOWCHK_EMAIL;
 const SHADOWCHK_PASSWORD = process.env.SHADOWCHK_PASSWORD;

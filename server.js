@@ -8,9 +8,10 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Credenciales (las configuramos después en Railway)
+// Todas las credenciales en variables de entorno
 const SHADOWCHK_EMAIL = process.env.SHADOWCHK_EMAIL;
 const SHADOWCHK_PASSWORD = process.env.SHADOWCHK_PASSWORD;
+const SHADOWCHK_URL = process.env.SHADOWCHK_URL || 'https://www.shadowchk.com/tools/card-storage';
 
 // Ruta para buscar BINs
 app.post('/api/search-bin', async (req, res) => {
@@ -25,7 +26,7 @@ app.post('/api/search-bin', async (req, res) => {
     let browser;
     
     try {
-        // Configurar Puppeteer (mejor que Selenium para servidores)
+        // Configurar Puppeteer
         browser = await puppeteer.launch({
             headless: true,
             args: [
@@ -42,9 +43,9 @@ app.post('/api/search-bin', async (req, res) => {
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
 
-        // Navegar al sitio
-        console.log('Navegando a ShadowChk...');
-        await page.goto('https://www.shadowchk.com/tools/card-storage', { 
+        // Navegar al sitio usando la variable de entorno
+        console.log('Navegando a:', SHADOWCHK_URL);
+        await page.goto(SHADOWCHK_URL, { 
             waitUntil: 'networkidle2',
             timeout: 30000 
         });
@@ -117,7 +118,8 @@ app.post('/api/search-bin', async (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: '✅ Backend funcionando',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        environment: 'Render'
     });
 });
 
@@ -125,6 +127,7 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
     res.json({ 
         message: 'Extrapolador Backend API',
+        environment: 'Render',
         endpoints: {
             health: '/api/health',
             search: '/api/search-bin (POST)'
@@ -132,7 +135,8 @@ app.get('/', (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Backend running on port ${PORT}`);
     console.log(`📧 Email configurado: ${SHADOWCHK_EMAIL ? '✅' : '❌'}`);
+    console.log(`🔗 URL configurada: ${SHADOWCHK_URL ? '✅' : '❌'}`);
 });

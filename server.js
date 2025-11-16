@@ -5,34 +5,47 @@ const puppeteer = require('puppeteer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ SOLUCIÓN: Configurar CORS UNA SOLA VEZ al inicio
+// CORS simplificado y efectivo
 app.use(cors({
-    origin: ['https://ciber7erroristaschk.com', 'http://localhost:3000', 'http://localhost:5500'],
+    origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+    allowedHeaders: ['Content-Type']
 }));
-
-// ✅ Manejar preflight OPTIONS requests
-app.options('*', cors());
 
 app.use(express.json());
 
-// Todas las credenciales en variables de entorno
-const SHADOWCHK_EMAIL = process.env.SHADOWCHK_EMAIL;
-const SHADOWCHK_PASSWORD = process.env.SHADOWCHK_PASSWORD;
-const SHADOWCHK_URL = process.env.SHADOWCHK_URL || 'https://www.shadowchk.com/tools/card-storage';
+// Middleware para logging
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
+});
 
-// Ruta para buscar BINs
+// Ruta de salud - DEBE funcionar
+app.get('/api/health', (req, res) => {
+    console.log('Health check recibido');
+    res.json({ 
+        status: '✅ Backend funcionando',
+        timestamp: new Date().toISOString(),
+        environment: 'Render'
+    });
+});
+
+// Ruta principal
+app.get('/', (req, res) => {
+    res.json({ 
+        message: 'Extrapolador Backend API',
+        endpoints: {
+            health: '/api/health',
+            search: '/api/search-bin (POST)'
+        }
+    });
+});
+
+// Ruta REAL para buscar BINs
 app.post('/api/search-bin', async (req, res) => {
-    // ✅ Agregar headers CORS manualmente por si acaso
-    res.header('Access-Control-Allow-Origin', 'https://ciber7erroristaschk.com');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    console.log('Buscando BIN:', req.body.bin);
     
     const { bin } = req.body;
-    
-    console.log('Buscando BIN:', bin);
     
     if (!bin || bin.length !== 6) {
         return res.status(400).json({ error: 'BIN debe tener 6 dígitos' });
@@ -41,7 +54,7 @@ app.post('/api/search-bin', async (req, res) => {
     let browser;
     
     try {
-        // Configurar Puppeteer
+        // Configurar Puppeteer para Render
         browser = await puppeteer.launch({
             headless: true,
             args: [
@@ -57,23 +70,26 @@ app.post('/api/search-bin', async (req, res) => {
 
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        await page.setViewport({ width: 1366, height: 768 });
 
-        // Navegar al sitio usando la variable de entorno
-        console.log('Navegando a:', SHADOWCHK_URL);
-        await page.goto(SHADOWCHK_URL, { 
+        // Navegar a ShadowChk - usando variable de entorno
+        const shadowchkUrl = process.env.SHADOWCHK_URL || 'https://www.shadowchk.com/tools/card-storage';
+        console.log('Navegando a:', shadowchkUrl);
+        
+        await page.goto(shadowchkUrl, { 
             waitUntil: 'networkidle2',
             timeout: 30000 
         });
 
-        // Login
+        // Login con variables de entorno
         try {
             console.log('Intentando login...');
             await page.waitForSelector('input[type="email"]', { timeout: 10000 });
-            await page.type('input[type="email"]', SHADOWCHK_EMAIL);
-            await page.type('input[type="password"]', SHADOWCHK_PASSWORD);
+            await page.type('input[type="email"]', process.env.SHADOWCHK_EMAIL);
+            await page.type('input[type="password"]', process.env.SHADOWCHK_PASSWORD);
             
             await page.click('button[type="submit"]');
-            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
+            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 });
             console.log('Login exitoso');
         } catch (loginError) {
             console.log('Posiblemente ya logueado:', loginError.message);
@@ -86,9 +102,10 @@ app.post('/api/search-bin', async (req, res) => {
         await page.keyboard.press('Enter');
         
         // Esperar resultados
-        await page.waitForTimeout(4000);
+        console.log('Esperando resultados...');
+        await page.waitForTimeout(5000);
 
-        // Obtener datos
+        // Obtener datos REALES
         console.log('Extrayendo datos...');
         const resultados = await page.evaluate(() => {
             const filas = document.querySelectorAll('table tbody tr');
@@ -108,7 +125,7 @@ app.post('/api/search-bin', async (req, res) => {
             return datos;
         });
 
-        console.log(`Encontradas ${resultados.length} tarjetas`);
+        console.log(`Encontradas ${resultados.length} tarjetas reales`);
         
         res.json({ 
             success: true, 
@@ -129,30 +146,22 @@ app.post('/api/search-bin', async (req, res) => {
     }
 });
 
-// Ruta de salud
-app.get('/api/health', (req, res) => {
-    res.json({ 
-        status: '✅ Backend funcionando',
-        timestamp: new Date().toISOString(),
-        environment: 'Render'
-    });
+// Manejo de rutas no encontradas
+app.use('*', (req, res) => {
+    res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
-// Ruta principal
-app.get('/', (req, res) => {
-    res.json({ 
-        message: 'Extrapolador Backend API',
-        environment: 'Render',
-        endpoints: {
-            health: '/api/health',
-            search: '/api/search-bin (POST)'
-        }
-    });
+// Manejo de errores
+app.use((err, req, res, next) => {
+    console.error('Error del servidor:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Backend running on port ${PORT}`);
-    console.log(`📧 Email configurado: ${SHHADOWCHK_EMAIL ? '✅' : '❌'}`);
-    console.log(`🔗 URL configurada: ${SHADOWCHK_URL ? '✅' : '❌'}`);
-    console.log(`🌐 CORS configurado para: https://ciber7erroristaschk.com`);
+    console.log(`🚀 Servidor ejecutándose en puerto ${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`📧 Email configurado: ${process.env.SHADOWCHK_EMAIL ? '✅' : '❌'}`);
+    console.log(`🔑 Password configurado: ${process.env.SHADOWCHK_PASSWORD ? '✅' : '❌'}`);
+    console.log(`🔗 URL configurada: ${process.env.SHADOWCHK_URL ? '✅' : '❌'}`);
+    console.log(`🌐 CORS configurado para todos los dominios`);
 });

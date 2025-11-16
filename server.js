@@ -83,11 +83,11 @@ app.post('/api/search-bin', async (req, res) => {
             }
         });
 
-        // Navegar a ShadowChk
-        const shadowchkUrl = process.env.SHADOWCHK_URL || 'https://www.shadowchk.com/tools/card-storage';
-        console.log('🌐 Navegando a:', shadowchkUrl);
+        // Navegar a  CHK
+        const chkUrl = process.env.CHK_URL || 'https://www.shadowchk.com/tools/card-storage';
+        console.log('🌐 Navegando a:', chkUrl);
         
-        await page.goto(shadowchkUrl, { 
+        await page.goto(chkUrl, { 
             waitUntil: 'domcontentloaded',
             timeout: 30000 
         });
@@ -96,8 +96,8 @@ app.post('/api/search-bin', async (req, res) => {
         try {
             console.log('🔑 Iniciando sesión...');
             await page.waitForSelector('input[type="email"]', { timeout: 10000 });
-            await page.type('input[type="email"]', process.env.SHADOWCHK_EMAIL, { delay: 50 });
-            await page.type('input[type="password"]', process.env.SHADOWCHK_PASSWORD, { delay: 50 });
+            await page.type('input[type="email"]', process.env.CHK_EMAIL, { delay: 50 });
+            await page.type('input[type="password"]', process.env.CHK_PASSWORD, { delay: 50 });
             
             await Promise.all([
                 page.click('button[type="submit"]'),
@@ -117,7 +117,7 @@ app.post('/api/search-bin', async (req, res) => {
         await page.keyboard.press('Enter');
         await page.waitForTimeout(4000);
 
-        // Extraer datos REALES de ShadowChk
+        // Extraer datos REALES del chk
         console.log('📊 Extrayendo datos de la tabla...');
         const resultados = await page.evaluate(() => {
             const datos = [];

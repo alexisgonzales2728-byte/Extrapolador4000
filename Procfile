@@ -1,1 +1,0 @@
-web: sh -c "npm install --force && node server.js"

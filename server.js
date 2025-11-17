@@ -7,9 +7,8 @@ const PORT = process.env.PORT || 3000;
 
 // CORS
 app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type']
+    origin: ['https://ciber7erroristaschk.com/extrapolador.html', 'http://localhost:3000'], // Agrega tu dominio
+    credentials: true
 }));
 
 app.use(express.json());
@@ -75,6 +74,40 @@ app.get('/', (req, res) => {
         },
         status: '🟢 ONLINE CON CHROMIUM'
     });
+});
+
+// Ruta de prueba Google instalado
+app.get('/api/debug-chromium', (req, res) => {
+    const fs = require('fs');
+    
+    try {
+        const paths = [
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser', 
+            '/usr/lib/chromium/chromium'
+        ];
+        
+        const results = {};
+        paths.forEach(path => {
+            try {
+                results[path] = {
+                    exists: fs.existsSync(path),
+                    executable: fs.existsSync(path) ? (fs.statSync(path).mode & fs.constants.X_OK) !== 0 : false
+                };
+            } catch (e) {
+                results[path] = { error: e.message };
+            }
+        });
+        
+        res.json({ 
+            paths: results,
+            cachedPath: cachedBrowserPath,
+            environment: process.env.PUPPETEER_EXECUTABLE_PATH
+        });
+        
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Ruta de prueba Puppeteer

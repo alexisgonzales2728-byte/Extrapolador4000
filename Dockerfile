@@ -18,13 +18,12 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 # Copiar package.json
 COPY package.json package-lock.json* ./
 
-# Instalar dependencias y limpiar cache
-RUN npm install --production --no-optional && npm cache clean --force
+# Instalar dependencias
+RUN npm install --production
 
 # Copiar código
 COPY . .
 
 EXPOSE 3000
 
-# Comando directo
 CMD ["node", "server.js"]

@@ -167,16 +167,19 @@ app.post('/api/search-bin', async (req, res) => {
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox', 
+                '--disable-dev-shm-usage',
+                '--single-process',         
+                '--max-old-space-size=128' 
             ],
-            protocolTimeout: 120000,
-            timeout: 120000         
+            protocolTimeout: 300000,
+            timeout: 300000         
         });
 
         console.log('✅ Puppeteer iniciado después de espera larga');
 
         const page = await browser.newPage();
-        await page.setDefaultNavigationTimeout(60000);
-        await page.setDefaultTimeout(60000);
+        await page.setDefaultNavigationTimeout(300000);
+        await page.setDefaultTimeout(300000);
 
         // COMENTADO TEMPORALMENTE - User Agent personalizado
         // await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');

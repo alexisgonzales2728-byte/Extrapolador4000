@@ -16,6 +16,19 @@ app.use(cors({
 app.options('*', cors());
 app.use(express.json());
 
+// Health check INMEDIATO
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'healthy', 
+        timestamp: new Date().toISOString(),
+        message: 'Backend funcionando'
+    });
+});
+
 // Cache para la ruta del navegador
 let cachedBrowserPath = null;
 

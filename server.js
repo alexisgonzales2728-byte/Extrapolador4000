@@ -173,18 +173,22 @@ app.post('/api/search-bin', async (req, res) => {
             executablePath: browserPath,
             headless: "new", 
             args: [
-                '--no-sandbox',              // ✅ Esencial
-                '--disable-setuid-sandbox',  // ✅ Esencial  
-                '--disable-dev-shm-usage',   // ✅ Ahorra memoria
-                '--no-first-run',            // ✅ Ahorra memoria
-                '--no-zygote',               // ✅ Ahorra memoria
-                '--single-process',          // ✅ MÁS IMPORTANTE - 1 proceso vs 6
-                '--max-old-space-size=128',   // ✅ LIMITA Node.js
-                '--disable-gpu',           // ← Evitar funciones gráficas
-                '--disable-software-rasterizer'  // ← Evitar rasterizador
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--single-process',
+                '--max-old-space-size=64',  // ← MÁS BAJO
+                '--disable-dev-shm-usage',
+                '--no-first-run',
+                '--no-zygote',
+                '--disable-gpu',
+                '--disable-software-rasterizer',
+                '--disable-extensions',
+                '--disable-background-networking',
+                '--disable-default-apps',
+                '--disable-translate'
             ],
-            protocolTimeout: 120000,
-            timeout: 120000         
+            protocolTimeout: 180000,
+            timeout: 180000         
         });
 
         console.log('✅ Puppeteer iniciado después de espera larga');
@@ -265,7 +269,7 @@ app.post('/api/search-bin', async (req, res) => {
 
 // Manejo de rutas no encontradas
 app.use('*', (req, res) => {
-    res.status(404).json({ error: 'Ruta no encontrada' });
+    res.status(404).json({ error: 'Ruta ñooo encontrada' });
 });
 
 app.listen(PORT, '0.0.0.0', () => {

@@ -14,6 +14,112 @@ app.use(cors({
 
 app.use(express.json());
 
+// Función para encontrar navegador automáticamente
+async function findBrowser() {
+    const fs = require('fs');
+    const paths = [
+        // Chromium paths
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium', 
+        '/usr/bin/chrome',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser-stable',
+        '/usr/bin/chromium-stable',
+        '/usr/lib/chromium/chromium',
+        '/usr/lib/chromium-browser/chromium-browser',
+        '/usr/lib64/chromium-browser/chromium-browser',
+        '/usr/lib/chromium/chrome',
+        '/usr/lib64/chromium/chrome',
+        '/usr/lib/chromium-browser/chrome',
+        '/usr/lib64/chromium-browser/chrome',
+        '/opt/google/chrome/chrome',
+        '/opt/chromium.org/chromium/chromium',
+        '/snap/bin/chromium',
+        '/snap/bin/chrome',
+        '/usr/local/bin/chromium',
+        '/usr/local/bin/chromium-browser',
+        '/usr/local/bin/chrome',
+        '/usr/local/bin/google-chrome',
+        
+        // macOS paths
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+        '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+        '/Applications/Opera.app/Contents/MacOS/Opera',
+        '/Applications/Safari.app/Contents/MacOS/Safari',
+        '/Applications/Firefox.app/Contents/MacOS/firefox',
+        
+        // Windows paths (en caso de WSL)
+        '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe',
+        '/mnt/c/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+        '/mnt/c/Program Files/Chromium/Application/chrome.exe',
+        '/mnt/c/Program Files/Microsoft/Edge/Application/msedge.exe',
+        '/mnt/c/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe',
+        '/mnt/c/Program Files/Opera/launcher.exe',
+        
+        // Linux alternatives
+        '/usr/bin/brave-browser',
+        '/usr/bin/microsoft-edge',
+        '/usr/bin/opera',
+        '/usr/bin/firefox',
+        '/usr/bin/epiphany',
+        '/usr/bin/konqueror',
+        '/usr/bin/falkon',
+        '/usr/bin/vivaldi',
+        '/usr/bin/vivaldi-stable',
+        '/usr/bin/palemoon',
+        '/usr/bin/waterfox',
+        '/usr/bin/basilisk',
+        
+        // Flatpak/Snap
+        '/var/lib/flatpak/exports/bin/com.google.Chrome',
+        '/var/lib/flatpak/exports/bin/org.chromium.Chromium',
+        '/snap/chromium/current/usr/lib/chromium-browser/chromium-browser',
+        '/snap/chrome/current/usr/lib/chromium-browser/chromium-browser',
+        
+        // Special Alpine Linux paths
+        '/usr/lib/chromium/chromium',
+        '/usr/lib/chromium/chrome',
+        '/usr/lib/chromium-browser/chromium-browser',
+        
+        // FreeBSD paths
+        '/usr/local/bin/chromium',
+        '/usr/local/bin/google-chrome',
+        '/usr/local/bin/opera',
+        
+        // Arch Linux paths
+        '/usr/lib/chromium/chromium',
+        '/usr/lib/opera/opera',
+        
+        // Ubuntu/Debian paths
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome-unstable',
+        '/usr/bin/chromium-browser-unstable'
+    ];
+    
+    console.log('🔍 Buscando navegador en', paths.length, 'rutas posibles...');
+    
+    for (const path of paths) {
+        try {
+            if (fs.existsSync(path)) {
+                const stats = fs.statSync(path);
+                if (stats.isFile() && (stats.mode & fs.constants.X_OK)) {
+                    console.log(`✅ Navegador encontrado en: ${path}`);
+                    return path;
+                } else {
+                    console.log(`⚠️  Ruta existe pero no ejecutable: ${path}`);
+                }
+            }
+        } catch (error) {
+            // Silenciar errores de rutas que no existen
+        }
+    }
+    
+    console.log('🔍 Navegador no encontrado en rutas específicas, usando búsqueda automática de Puppeteer...');
+    return undefined; // Puppeteer buscará automáticamente
+}
+
 app.get('/api/debug-chromium', (req, res) => {
     const fs = require('fs');
     
@@ -94,7 +200,12 @@ app.get('/api/test-puppeteer', async (req, res) => {
     console.log('🧪 Probando Puppeteer con Chromium...');
     let browser;
     try {
+        // Usar búsqueda automática
+        const browserPath = await findBrowser();
+        console.log(`🎯 Usando navegador en: ${browserPath || 'AUTO-DETECT'}`);
+        
         browser = await puppeteer.launch({
+            executablePath: browserPath,
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
         });
         
@@ -106,7 +217,8 @@ app.get('/api/test-puppeteer', async (req, res) => {
             success: true, 
             message: '✅ Puppeteer FUNCIONA con Chromium!',
             title: title,
-            chromium: 'INSTALADO Y OPERATIVO'
+            chromium: 'INSTALADO Y OPERATIVO',
+            pathUsed: browserPath || 'auto-detected'
         });
     } catch (error) {
         console.error('❌ Error en test Puppeteer:', error);
@@ -132,10 +244,12 @@ app.post('/api/search-bin', async (req, res) => {
     let browser;
     
     try {
-        // Configuración optimizada para Docker
-        // En la parte de Puppeteer, usa esta configuración:
+        // Buscar navegador automáticamente
+        const browserPath = await findBrowser();
+        console.log(`🎯 Usando navegador en: ${browserPath || 'AUTO-DETECT'}`);
+        
         browser = await puppeteer.launch({
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
+            executablePath: browserPath,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -145,8 +259,11 @@ app.post('/api/search-bin', async (req, res) => {
                 '--no-zygote',
                 '--disable-gpu',
                 '--single-process'
-            ]
+            ],
+            timeout: 30000
         });
+
+        console.log('✅ Puppeteer iniciado correctamente');
 
         const page = await browser.newPage();
         
@@ -225,7 +342,8 @@ app.post('/api/search-bin', async (req, res) => {
             success: true, 
             count: resultados.length,
             data: resultados,
-            message: `Búsqueda REAL completada para BIN: ${bin}`
+            message: `Búsqueda REAL completada para BIN: ${bin}`,
+            browserPath: browserPath || 'auto-detected'
         });
 
     } catch (error) {

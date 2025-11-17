@@ -1,4 +1,4 @@
-// server.js - VERSIÓN SIN CHROMIUM EXTERNO
+// server.js - VERSIÓN COMPLETA Y CORREGIDA
 const fs = require('fs');
 const { execSync } = require('child_process');
 
@@ -18,11 +18,15 @@ function installDependencies() {
                     name: "extrapolador-backend",
                     version: "1.0.0",
                     main: "server.js",
-                    scripts: { start: "node server.js" },
+                    scripts: { 
+                        start: "node server.js",
+                        prestart: "npm install && npx puppeteer browsers install chrome",
+                        postinstall: "npx puppeteer browsers install chrome || echo 'Chromium installation skipped'"
+                    },
                     dependencies: {
                         "express": "^4.18.2",
                         "cors": "^2.8.5",
-                        "puppeteer": "^24.15.0"
+                        "puppeteer": "^21.6.1"
                     }
                 };
                 fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));
@@ -45,15 +49,49 @@ function installDependencies() {
 
 installDependencies();
 
+// ==================== CONFIGURACIÓN PUPPETEER ====================
+console.log('🔧 Configurando Puppeteer...');
+
+// Buscar Chromium automáticamente en rutas comunes
+function findChromium() {
+    const possiblePaths = [
+        '/home/heroku/.cache/puppeteer/chrome/linux-142.0.7444.162/chrome-linux64/chrome',
+        '/home/heroku/.cache/puppeteer/chrome/linux-1069273/chrome-linux64/chrome',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser'
+    ];
+
+    for (const path of possiblePaths) {
+        try {
+            if (fs.existsSync(path)) {
+                console.log('✅ Chromium encontrado:', path);
+                return path;
+            }
+        } catch (error) {
+            continue;
+        }
+    }
+    
+    console.log('⚠️ Chromium no encontrado en rutas específicas, usando automático');
+    return undefined;
+}
+
+const chromiumPath = findChromium();
+if (chromiumPath) {
+    process.env.PUPPETEER_EXECUTABLE_PATH = chromiumPath;
+    console.log('🎯 Usando Chromium en:', chromiumPath);
+} else {
+    console.log('🔧 Puppeteer usará Chromium automático');
+}
+
 // ==================== CARGAR MÓDULOS ====================
 console.log('🔧 Cargando módulos...');
-let express, cors, puppeteer, chromium;
+let express, cors, puppeteer;
 
 try {
     express = require('express');
     cors = require('cors');
-    puppeteer = require('puppeteer-core');  // ← CAMBIADO
-    chromium = require('chrome-aws-lambda'); // ← AGREGADO
+    puppeteer = require('puppeteer');
     console.log('✅ Módulos cargados correctamente');
 } catch (error) {
     console.error('❌ Error cargando módulos:', error.message);
@@ -93,20 +131,33 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(express.json());
 
-// ==================== PUPPETEER SIMPLIFICADO ====================
+// ==================== PUPPETEER OPTIMIZADO ====================
 async function doPuppeteerSearch(bin) {
     let browser;
     
     try {
-        console.log('⏳ Iniciando Puppeteer (con Chromium automático)...');
+        console.log('⏳ Iniciando Puppeteer...');
         
-        browser = await puppeteer.launch({
-            args: chromium.args,
-            executablePath: await chromium.executablePath,
-            headless: chromium.headless,
+        const launchOptions = {
+            headless: "new",
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--single-process',
+                '--no-zygote'
+            ],
             timeout: 60000
-        });
+        };
 
+        // Usar executablePath si está disponible
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
+
+        browser = await puppeteer.launch(launchOptions);
         console.log('✅ Puppeteer iniciado correctamente');
 
         const page = await browser.newPage();
@@ -194,7 +245,6 @@ async function doPuppeteerSearch(bin) {
 
         await page.waitForTimeout(3000);
 
-        // Buscar BIN
         console.log('🎯 Buscando BIN:', bin);
         
         const searchField = await page.evaluate(() => {
@@ -244,15 +294,15 @@ async function doPuppeteerSearch(bin) {
 // ==================== RUTAS PRINCIPALES ====================
 app.get('/', (req, res) => {
     res.json({ 
-        message: '🎉 Extrapolador Backend API - PUPPETEER AUTOMÁTICO',
+        message: '🎉 Extrapolador Backend API - CONFIGURACIÓN PERMANENTE',
         status: '🟢 ONLINE', 
         node: process.version,
         resources: '8 vCPU / 8192 MB',
-        puppeteer: 'Chromium automático',
         endpoints: {
             health: '/api/health',
             search: '/api/search-bin (POST)',
-            test: '/api/test-puppeteer'
+            test: '/api/test-puppeteer',
+            debug: '/api/debug'
         }
     });
 });
@@ -267,7 +317,7 @@ app.post('/api/search-bin', async (req, res) => {
     
     try {
         const result = await doPuppeteerSearch(bin);
-        res.json({ ...result, source: 'puppeteer_automático' });
+        res.json({ ...result, source: 'puppeteer_8gb_ram' });
     } catch (error) {
         console.error('❌ Error en búsqueda:', error.message);
         res.status(500).json({ 
@@ -282,13 +332,17 @@ app.get('/api/test-puppeteer', async (req, res) => {
     console.log('🧪 Probando Puppeteer...');
     let browser;
     try {
-        browser = await puppeteer.launch({
-            args: chromium.args,
-            executablePath: await chromium.executablePath, 
-            headless: chromium.headless,
+        const launchOptions = {
+            headless: "new",
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
             timeout: 30000
-        });
-        
+        };
+
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
+
+        browser = await puppeteer.launch(launchOptions);
         const page = await browser.newPage();
         await page.goto('https://example.com', { waitUntil: 'domcontentloaded', timeout: 20000 });
         const title = await page.title();
@@ -297,7 +351,7 @@ app.get('/api/test-puppeteer', async (req, res) => {
             success: true, 
             message: '✅ Puppeteer FUNCIONA!',
             title: title,
-            note: 'Usando Chromium automático de Puppeteer'
+            chromium: process.env.PUPPETEER_EXECUTABLE_PATH ? 'Ruta específica' : 'Automático'
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -311,7 +365,7 @@ app.get('/health', (req, res) => {
     res.status(200).json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
-        message: 'Servidor activo - Puppeteer automático',
+        message: 'Servidor activo - Configuración permanente',
         node: process.version
     });
 });
@@ -321,7 +375,35 @@ app.get('/api/health', (req, res) => {
         status: 'healthy', 
         timestamp: new Date().toISOString(),
         resources: '8 vCPU / 8192 MB',
-        node: process.version
+        node: process.version,
+        chromium: process.env.PUPPETEER_EXECUTABLE_PATH ? 'Configurado' : 'Automático'
+    });
+});
+
+app.get('/api/debug', (req, res) => {
+    const paths = ['/home/heroku/.cache/puppeteer/chrome/linux-142.0.7444.162/chrome-linux64/chrome', '/usr/bin/chromium'];
+    const results = {};
+    
+    paths.forEach(path => {
+        try {
+            results[path] = {
+                exists: fs.existsSync(path),
+                executable: fs.existsSync(path) ? (fs.statSync(path).mode & fs.constants.X_OK) !== 0 : false
+            };
+        } catch (e) {
+            results[path] = { error: e.message };
+        }
+    });
+    
+    res.json({ 
+        browserPaths: results,
+        nodeVersion: process.version,
+        environment: {
+            CHK_URL: process.env.CHK_URL ? '✅ Configurado' : '❌ No configurado',
+            CHK_EMAIL: process.env.CHK_EMAIL ? '✅ Configurado' : '❌ No configurado',
+            CHK_PASSWORD: process.env.CHK_PASSWORD ? '✅ Configurado' : '❌ No configurado',
+            PUPPETEER_EXECUTABLE_PATH: process.env.PUPPETEER_EXECUTABLE_PATH || 'No configurado'
+        }
     });
 });
 
@@ -331,8 +413,8 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`💪 RECURSOS: 8 vCPU / 8192 MB RAM`);
     console.log(`🔧 Node.js: ${process.version}`);
     console.log(`🌐 CORS: Configurado para producción`);
-    console.log(`🦊 Puppeteer: Chromium automático`);
-    console.log(`🚀 LISTO PARA EXTRAPOLACIÓN!`);
+    console.log(`🦊 Puppeteer: ${process.env.PUPPETEER_EXECUTABLE_PATH ? 'Ruta específica' : 'Automático'}`);
+    console.log(`🚀 CONFIGURACIÓN PERMANENTE ACTIVADA!`);
 });
 
-console.log('✅ Servidor con Puppeteer automático - LISTO!');
+console.log('✅ Servidor con configuración permanente - LISTO!');

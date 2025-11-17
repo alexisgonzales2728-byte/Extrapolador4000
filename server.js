@@ -146,11 +146,12 @@ app.get('/api/test-puppeteer', async (req, res) => {
     }
 });
 
-app.use('/api/search-bin', (req, res, next) => {
-    console.log('🟡 /api/search-bin REQUEST RECIBIDO');
-    console.log('🟡 Method:', req.method);
-    console.log('🟡 Headers:', req.headers);
-    next(); // Pasar al siguiente middleware
+// Manejar OPTIONS explícitamente
+app.options('/api/search-bin', (req, res) => {
+    console.log('🔵 OPTIONS /api/search-bin - Preflight CORS');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.status(200).end();
 });
 
 // Ruta REAL para scraping (OPTIMIZADA)

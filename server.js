@@ -7,9 +7,13 @@ const PORT = process.env.PORT || 3000;
 
 // CORS
 app.use(cors({
-    origin: ['https://ciber7erroristaschk.com/extrapolador.html', 'http://localhost:3000'], // Agrega tu dominio
+    origin: ['https://ciber7erroristaschk.com', 'http://localhost:3000', 'http://127.0.0.1:5500'],
+    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true
 }));
+
+app.options('*', cors());
 
 app.use(express.json());
 

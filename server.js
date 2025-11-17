@@ -164,15 +164,9 @@ app.post('/api/search-bin', async (req, res) => {
         browser = await puppeteer.launch({
             executablePath: browserPath,
             headless: "new", 
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox', 
-                '--disable-dev-shm-usage',
-                '--single-process',         
-                '--max-old-space-size=128' 
-            ],
-            protocolTimeout: 300000,
-            timeout: 300000         
+            args: ['--no-sandbox'], 
+            protocolTimeout: 120000,
+            timeout: 120000         
         });
 
         console.log('✅ Puppeteer iniciado después de espera larga');

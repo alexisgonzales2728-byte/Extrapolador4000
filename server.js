@@ -160,27 +160,38 @@ app.post('/api/search-bin', async (req, res) => {
     
     try {
         const browserPath = await findBrowser();
-        
+        console.log('⏳ Iniciando Puppeteer (puede tomar hasta 5 minutos)...');
         browser = await puppeteer.launch({
             executablePath: browserPath,
             headless: "new", 
             args: [
                 '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage'
+                '--disable-setuid-sandbox', 
+                '--disable-dev-shm-usage',
+                '--single-process',
+                '--max-old-space-size=512'
             ],
-            protocolTimeout: 60000,  
-            timeout: 60000           
+            protocolTimeout: 300000,  
+            timeout: 300000           
         });
 
-        console.log('✅ Puppeteer iniciado');
+        console.log('✅ Puppeteer iniciado después de espera larga');
 
         const page = await browser.newPage();
+        await page.setDefaultNavigationTimeout(300000);
+        await page.setDefaultTimeout(300000);
+
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
 
-        // Navegar a CHK
+        // Navegar a CHK con timeout extendido
         const chkUrl = process.env.CHK_URL;
         console.log('🌐 Navegando a:', chkUrl);
+        
+        await page.goto(chkUrl, { 
+            waitUntil: 'networkidle0',  // Esperar a que NO haya red
+            timeout: 300000
+        });
+
         
         await page.goto(chkUrl, { 
             waitUntil: 'domcontentloaded',

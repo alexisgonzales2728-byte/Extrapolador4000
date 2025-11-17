@@ -381,6 +381,7 @@ app.post('/api/search-bin-puppeteer', async (req, res) => {
     }
 });
 
+// Si type no funciona, prueba esto:
 app.get('/api/test-login-simple', async (req, res) => {
     try {
         const scrapingbeeUrl = 'https://app.scrapingbee.com/api/v1/';
@@ -388,37 +389,18 @@ app.get('/api/test-login-simple', async (req, res) => {
             'api_key': process.env.SCRAPINGBEE_API_KEY,
             'url': process.env.CHK_URL,
             'render_js': 'true',
-            'js_scenario': JSON.stringify({
-                "instructions": [
-                    { "wait": 2000 },
-                    { 
-                        "type": {  // ← PROBAR type
-                            "selector": "input[type='email']", 
-                            "selector_type": "css",
-                            "text": process.env.CHK_EMAIL 
-                        }
-                    },
-                    { 
-                        "type": {  // ← PROBAR type
-                            "selector": "input[type='password']", 
-                            "selector_type": "css",
-                            "text": process.env.CHK_PASSWORD 
-                        }
-                    },
-                    { 
-                        "click": { 
-                            "selector": "button[type='submit']",
-                            "selector_type": "css"
-                        } 
-                    },
-                    { "wait": 5000 }
-                ]
-            }),
-            'wait': '7000',
+            'custom_js': `
+                setTimeout(() => {
+                    document.querySelector('input[type="email"]').value = '${process.env.CHK_EMAIL}';
+                    document.querySelector('input[type="password"]').value = '${process.env.CHK_PASSWORD}';
+                    document.querySelector('button[type="submit"]').click();
+                }, 2000);
+            `,
+            'wait': '5000',
             'timeout': '30000'
         });
 
-        console.log('🔄 Probando con type...');
+        console.log('🔄 Probando con custom_js...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
         
         if (!response.ok) {
@@ -430,7 +412,7 @@ app.get('/api/test-login-simple', async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: '✅ Login con type funcionó!',
+            message: '✅ Login con custom_js funcionó!',
             html_length: html.length,
             html_preview: html.substring(0, 1000)
         });

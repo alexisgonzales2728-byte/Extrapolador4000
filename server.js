@@ -109,7 +109,13 @@ async function doPuppeteerSearch(bin) {
                 '--disable-gpu',
                 '--no-first-run',
                 '--single-process',
-                '--no-zygote'
+                '--no-zygote',
+                '--disable-software-rasterizer',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
+                '--disable-features=TranslateUI,BlinkGenPropertyTrees,VizDisplayCompositor',
+                '--memory-pressure-off'
             ],
             timeout: 60000
         });
@@ -291,7 +297,21 @@ app.get('/api/test-puppeteer', async (req, res) => {
     try {
         browser = await puppeteer.launch({
             headless: "new",
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--single-process',
+                '--no-zygote',
+                '--disable-software-rasterizer',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
+                '--disable-features=TranslateUI,BlinkGenPropertyTrees,VizDisplayCompositor',
+                '--memory-pressure-off'
+            ],
             timeout: 30000
         });
         

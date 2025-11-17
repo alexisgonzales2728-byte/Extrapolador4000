@@ -178,8 +178,8 @@ app.post('/api/search-bin', async (req, res) => {
         console.log('✅ Puppeteer iniciado después de espera larga');
 
         const page = await browser.newPage();
-        await page.setDefaultNavigationTimeout(300000);
-        await page.setDefaultTimeout(300000);
+        await page.setDefaultNavigationTimeout(600000);
+        await page.setDefaultTimeout(600000);
 
         // COMENTADO TEMPORALMENTE - User Agent personalizado
         // await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
@@ -190,18 +190,18 @@ app.post('/api/search-bin', async (req, res) => {
         
         await page.goto(chkUrl, { 
             waitUntil: 'domcontentloaded',  // MÁS RÁPIDO
-            timeout: 60000
+            timeout: 400000
         });
         // Login
         try {
             console.log('🔑 Iniciando sesión...');
-            await page.waitForSelector('input[type="email"]', { timeout: 10000 });
+            await page.waitForSelector('input[type="email"]', { timeout: 30000 });
             await page.type('input[type="email"]', process.env.CHK_EMAIL, { delay: 50 });
             await page.type('input[type="password"]', process.env.CHK_PASSWORD, { delay: 50 });
             
             await Promise.all([
                 page.click('button[type="submit"]'),
-                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 })
+                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 })
             ]);
             console.log('✅ Sesión iniciada');
         } catch (loginError) {

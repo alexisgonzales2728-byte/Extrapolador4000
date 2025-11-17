@@ -2,7 +2,7 @@ FROM node:18-alpine
 
 WORKDIR /workspace
 
-# Instalar dependencias del sistema PRIMERO
+# Instalar dependencias del sistema
 RUN apk update && apk add --no-cache \
     chromium \
     nss \
@@ -15,14 +15,16 @@ RUN apk update && apk add --no-cache \
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-# Copiar package.json e instalar dependencias
+# Copiar package.json
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm cache clean --force
 
-# Copiar código de la aplicación
+# Instalar dependencias y limpiar cache
+RUN npm install --production --no-optional && npm cache clean --force
+
+# Copiar código
 COPY . .
 
 EXPOSE 3000
 
-# Usar node directamente, no script de entrypoint
+# Comando directo
 CMD ["node", "server.js"]

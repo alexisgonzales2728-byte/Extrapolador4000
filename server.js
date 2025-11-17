@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
-const fetch = require('node-fetch'); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,19 +18,6 @@ app.use(express.json());
 
 // Cache para la ruta del navegador
 let cachedBrowserPath = null;
-
-// Función para extraer datos del HTML (DEBE IR PRIMERO)
-function extractDataFromHTML(html) {
-    const datos = [];
-    const regex = /\d{16}\|\d{2}\|\d{4}\|\d{3}/g;
-    const matches = html.match(regex);
-    
-    if (matches) {
-        datos.push(...matches);
-    }
-    
-    return datos;
-}
 
 // Función para encontrar navegador automáticamente
 async function findBrowser() {
@@ -70,13 +56,13 @@ async function findBrowser() {
     return undefined;
 }
 
-// Función de fallback con Puppeteer
+// Puppeteer OPTIMIZADO para menos RAM
 async function doPuppeteerSearch(bin) {
     let browser;
     
     try {
         const browserPath = await findBrowser();
-        console.log('⏳ Iniciando Puppeteer (fallback)...');
+        console.log('⏳ Iniciando Puppeteer OPTIMIZADO...');
         
         browser = await puppeteer.launch({
             executablePath: browserPath,
@@ -84,46 +70,57 @@ async function doPuppeteerSearch(bin) {
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage'
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--single-process',
+                '--no-zygote',
+                '--max-old-space-size=128'
             ],
-            timeout: 60000
+            timeout: 45000
         });
 
         const page = await browser.newPage();
-        await page.setDefaultNavigationTimeout(60000);
-        await page.setDefaultTimeout(60000);
+        
+        // LIMITAR recursos para ahorrar RAM
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
 
-        // Navegar al sitio
+        await page.setDefaultNavigationTimeout(30000);
+        await page.setDefaultTimeout(30000);
+
+        // Navegar
         const chkUrl = process.env.CHK_URL;
         console.log('🌐 Navegando a:', chkUrl);
         
         await page.goto(chkUrl, { 
-            waitUntil: 'domcontentloaded',
-            timeout: 60000
+            waitUntil: 'networkidle0',
+            timeout: 30000
         });
 
         // Login
-        try {
-            console.log('🔑 Iniciando sesión (fallback)...');
-            await page.waitForSelector('input[type="email"]', { timeout: 10000 });
-            await page.type('input[type="email"]', process.env.CHK_EMAIL, { delay: 50 });
-            await page.type('input[type="password"]', process.env.CHK_PASSWORD, { delay: 50 });
-            
-            await Promise.all([
-                page.click('button[type="submit"]'),
-                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 })
-            ]);
-            console.log('✅ Sesión iniciada (fallback)');
-        } catch (loginError) {
-            console.log('ℹ️  Sesión previa (fallback):', loginError.message);
-        }
+        console.log('🔑 Iniciando sesión...');
+        await page.waitForSelector('input[type="email"]', { timeout: 5000 });
+        await page.type('input[type="email"]', process.env.CHK_EMAIL, { delay: 10 });
+        await page.type('input[type="password"]', process.env.CHK_PASSWORD, { delay: 10 });
+        
+        await Promise.all([
+            page.click('button[type="submit"]'),
+            page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 10000 })
+        ]);
 
         // Buscar BIN
-        console.log('🎯 Buscando BIN (fallback):', bin);
-        await page.waitForSelector('input[placeholder="Buscar por BIN de 6 dígitos..."]', { timeout: 10000 });
-        await page.type('input[placeholder="Buscar por BIN de 6 dígitos..."]', bin, { delay: 30 });
+        console.log('🎯 Buscando BIN:', bin);
+        await page.waitForSelector('input[placeholder="Buscar por BIN de 6 dígitos..."]', { timeout: 5000 });
+        await page.type('input[placeholder="Buscar por BIN de 6 dígitos..."]', bin, { delay: 10 });
         await page.keyboard.press('Enter');
-        await page.waitForTimeout(4000);
+        await page.waitForTimeout(2000);
 
         // Extraer datos
         const resultados = await page.evaluate(() => {
@@ -140,7 +137,7 @@ async function doPuppeteerSearch(bin) {
             return datos;
         });
 
-        console.log(`✅ Puppeteer fallback: ${resultados.length} tarjetas`);
+        console.log(`✅ Puppeteer: ${resultados.length} tarjetas`);
         
         return {
             success: true, 
@@ -149,77 +146,58 @@ async function doPuppeteerSearch(bin) {
         };
 
     } catch (error) {
-        console.error('❌ Error en fallback Puppeteer:', error);
+        console.error('❌ Error en Puppeteer:', error);
         throw error;
     } finally {
         if (browser) await browser.close().catch(console.error);
     }
 }
 
-// Health check
+// Health check ACTUALIZADO
 app.get('/api/health', (req, res) => {
     res.json({ 
-        status: '✅ Backend funcionando con ScrapingBee + Puppeteer',
+        status: '✅ Backend funcionando con Puppeteer optimizado',
         timestamp: new Date().toISOString(),
-        provider: 'Northflank + ScrapingBee',
-        message: 'Sistema híbrido activo'
+        provider: 'Northflank + Puppeteer',
+        message: 'Sistema optimizado para bajo consumo de RAM'
     });
 });
 
-// Ruta principal
+// Ruta principal ACTUALIZADA
 app.get('/', (req, res) => {
     res.json({ 
-        message: 'Extrapolador Backend API - Sistema Híbrido',
+        message: 'Extrapolador Backend API - Puppeteer Optimizado',
         endpoints: {
             health: '/api/health (GET)',
-            search: '/api/search-bin (POST) - ScrapingBee',
-            search_puppeteer: '/api/search-bin-puppeteer (POST) - Puppeteer local',
-            test: '/api/test-puppeteer (GET)',
-            test_scrapingbee: '/api/test-scrapingbee (GET)'
+            search: '/api/search-bin (POST) - Búsqueda principal',
+            test: '/api/test-puppeteer (GET)'
         },
-        status: '🟢 ONLINE HÍBRIDO'
+        status: '🟢 ONLINE OPTIMIZADO'
     });
 });
 
-// Ruta de prueba ScrapingBee
-app.get('/api/test-scrapingbee', async (req, res) => {
+// Ruta PRINCIPAL
+app.post('/api/search-bin', async (req, res) => {
+    const { bin } = req.body;
+    
+    if (!bin || bin.length !== 6) {
+        return res.status(400).json({ error: 'BIN debe tener exactamente 6 dígitos' });
+    }
+
+    console.log(`🔍 Búsqueda para BIN: ${bin}`);
+    
     try {
-        if (!process.env.SCRAPINGBEE_API_KEY) {
-            return res.status(500).json({ error: 'SCRAPINGBEE_API_KEY no configurada' });
-        }
-
-        const scrapingbeeUrl = 'https://app.scrapingbee.com/api/v1/';
-        
-        // ✅ SOLO probar carga básica
-        const params = new URLSearchParams({
-            'api_key': process.env.SCRAPINGBEE_API_KEY,
-            'url': 'https://httpbin.org/html',  // Sitio de prueba simple
-            'render_js': 'false',  // Sin JS
-            'timeout': '10000'
+        const result = await doPuppeteerSearch(bin);
+        res.json({
+            ...result,
+            source: 'puppeteer_optimized'
         });
 
-        console.log('🔄 Probando ScrapingBee básico...');
-        const response = await fetch(scrapingbeeUrl + '?' + params);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`ScrapingBee HTTP ${response.status}: ${errorText}`);
-        }
-
-        const html = await response.text();
-        
-        res.json({ 
-            success: true, 
-            message: '✅ ScrapingBee básico funciona!',
-            html_length: html.length,
-            test: 'Básico OK'
-        });
     } catch (error) {
-        console.error('❌ Error test ScrapingBee:', error);
+        console.error('❌ Error:', error.message);
         res.status(500).json({ 
             success: false, 
-            error: error.message,
-            test: 'Falló básico'
+            error: `Error: ${error.message}`
         });
     }
 });
@@ -256,174 +234,6 @@ app.get('/api/test-puppeteer', async (req, res) => {
     }
 });
 
-// Ruta PRINCIPAL: ScrapingBee con fill como array
-app.post('/api/search-bin', async (req, res) => {
-    const { bin } = req.body;
-    
-    if (!bin || bin.length !== 6) {
-        return res.status(400).json({ error: 'BIN debe tener exactamente 6 dígitos' });
-    }
-
-    console.log(`🔍 Búsqueda con ScrapingBee para BIN: ${bin}`);
-    
-    try {
-        if (!process.env.SCRAPINGBEE_API_KEY) {
-            throw new Error('SCRAPINGBEE_API_KEY no configurada');
-        }
-
-        const scrapingbeeUrl = 'https://app.scrapingbee.com/api/v1/';
-        
-        const params = new URLSearchParams({
-            'api_key': process.env.SCRAPINGBEE_API_KEY,
-            'url': process.env.CHK_URL,
-            'render_js': 'true',
-            'js_scenario': JSON.stringify({
-                "instructions": [
-                    { "wait": 2000 },
-                    { 
-                        "fill": [{  // ← ARRAY
-                            "selector": "input[type='email']", 
-                            "selector_type": "css",
-                            "value": process.env.CHK_EMAIL 
-                        }]
-                    },
-                    { 
-                        "fill": [{  // ← ARRAY
-                            "selector": "input[type='password']", 
-                            "selector_type": "css",
-                            "value": process.env.CHK_PASSWORD 
-                        }]
-                    },
-                    { 
-                        "click": { 
-                            "selector": "button[type='submit']",
-                            "selector_type": "css"
-                        } 
-                    },
-                    { "wait": 3000 },
-                    { 
-                        "fill": [{  // ← ARRAY
-                            "selector": "input[placeholder*='BIN']", 
-                            "selector_type": "css",
-                            "value": bin 
-                        }]
-                    },
-                    { "wait": 5000 }
-                ]
-            }),
-            'wait': '8000',
-            'timeout': '30000'
-        });
-
-        console.log('🔄 Enviando request con fill como array...');
-        const response = await fetch(scrapingbeeUrl + '?' + params);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`ScrapingBee HTTP ${response.status}: ${errorText}`);
-        }
-
-        const html = await response.text();
-        console.log('✅ HTML recibido de ScrapingBee, longitud:', html.length);
-        
-        const resultados = extractDataFromHTML(html);
-        
-        console.log(`✅ ScrapingBee: ${resultados.length} tarjetas encontradas`);
-        
-        res.json({ 
-            success: true, 
-            count: resultados.length,
-            data: resultados,
-            source: 'scrapingbee',
-            message: `Búsqueda completada para BIN: ${bin} (vía ScrapingBee)`
-        });
-
-    } catch (error) {
-        console.error('❌ Error con ScrapingBee:', error.message);
-        
-        console.log('🔄 Intentando fallback con Puppeteer local...');
-        try {
-            const fallbackResult = await doPuppeteerSearch(bin);
-            res.json({
-                ...fallbackResult,
-                source: 'puppeteer_fallback',
-                note: 'ScrapingBee falló, usando Puppeteer local'
-            });
-        } catch (fallbackError) {
-            res.status(500).json({ 
-                success: false, 
-                error: `Ambos métodos fallaron: ${error.message}`,
-                source: 'error'
-            });
-        }
-    }
-});
-
-// Ruta Puppeteer directo
-app.post('/api/search-bin-puppeteer', async (req, res) => {
-    const { bin } = req.body;
-    
-    if (!bin || bin.length !== 6) {
-        return res.status(400).json({ error: 'BIN debe tener exactamente 6 dígitos' });
-    }
-
-    try {
-        const result = await doPuppeteerSearch(bin);
-        res.json({
-            ...result,
-            source: 'puppeteer_direct'
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            success: false, 
-            error: `Error Puppeteer: ${error.message}` 
-        });
-    }
-});
-
-// Si type no funciona, prueba esto:
-app.get('/api/test-login-simple', async (req, res) => {
-    try {
-        const scrapingbeeUrl = 'https://app.scrapingbee.com/api/v1/';
-        const params = new URLSearchParams({
-            'api_key': process.env.SCRAPINGBEE_API_KEY,
-            'url': process.env.CHK_URL,
-            'render_js': 'true',
-            'custom_js': `
-                setTimeout(() => {
-                    document.querySelector('input[type="email"]').value = '${process.env.CHK_EMAIL}';
-                    document.querySelector('input[type="password"]').value = '${process.env.CHK_PASSWORD}';
-                    document.querySelector('button[type="submit"]').click();
-                }, 2000);
-            `,
-            'wait': '5000',
-            'timeout': '30000'
-        });
-
-        console.log('🔄 Probando con custom_js...');
-        const response = await fetch(scrapingbeeUrl + '?' + params);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`ScrapingBee HTTP ${response.status}: ${errorText}`);
-        }
-
-        const html = await response.text();
-        
-        res.json({ 
-            success: true, 
-            message: '✅ Login con custom_js funcionó!',
-            html_length: html.length,
-            html_preview: html.substring(0, 1000)
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            success: false, 
-            error: error.message
-        });
-    }
-});
-
 // Ruta debug Chromium
 app.get('/api/debug-chromium', (req, res) => {
     const fs = require('fs');
@@ -450,8 +260,7 @@ app.get('/api/debug-chromium', (req, res) => {
         res.json({ 
             paths: results,
             cachedPath: cachedBrowserPath,
-            environment: process.env.PUPPETEER_EXECUTABLE_PATH,
-            scrapingbee_key: process.env.SCRAPINGBEE_API_KEY ? '✅ Configurada' : '❌ No configurada'
+            environment: process.env.PUPPETEER_EXECUTABLE_PATH
         });
         
     } catch (error) {
@@ -466,6 +275,5 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor en puerto ${PORT}`);
-    console.log(`🔧 Modo: Híbrido (ScrapingBee + Puppeteer fallback)`);
-    console.log(`🌐 ScrapingBee: ${process.env.SCRAPINGBEE_API_KEY ? '✅ Configurado' : '❌ No configurado'}`);
+    console.log(`🔧 Modo: Puppeteer Optimizado (bajo consumo RAM)`);
 });

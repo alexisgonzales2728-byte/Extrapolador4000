@@ -257,6 +257,7 @@ app.get('/api/test-puppeteer', async (req, res) => {
 });
 
 // Ruta PRINCIPAL: ScrapingBee SIN Enter
+// Ruta PRINCIPAL: ScrapingBee con selector_type
 app.post('/api/search-bin', async (req, res) => {
     const { bin } = req.body;
     
@@ -273,7 +274,6 @@ app.post('/api/search-bin', async (req, res) => {
 
         const scrapingbeeUrl = 'https://app.scrapingbee.com/api/v1/';
         
-        // ✅ SUPER SIMPLE - solo escribir BIN y esperar
         const params = new URLSearchParams({
             'api_key': process.env.SCRAPINGBEE_API_KEY,
             'url': process.env.CHK_URL,
@@ -283,29 +283,46 @@ app.post('/api/search-bin', async (req, res) => {
                     { "wait": 2000 },
                     { 
                         "fill": [
-                            { "selector": "input[type='email']", "value": process.env.CHK_EMAIL }
+                            { 
+                                "selector": "input[type='email']", 
+                                "selector_type": "css",
+                                "value": process.env.CHK_EMAIL 
+                            }
                         ]
                     },
                     { 
                         "fill": [
-                            { "selector": "input[type='password']", "value": process.env.CHK_PASSWORD }
+                            { 
+                                "selector": "input[type='password']", 
+                                "selector_type": "css",
+                                "value": process.env.CHK_PASSWORD 
+                            }
                         ]
                     },
-                    { "click": { "selector": "button[type='submit']" } },
+                    { 
+                        "click": { 
+                            "selector": "button[type='submit']",
+                            "selector_type": "css"
+                        } 
+                    },
                     { "wait": 3000 },
                     { 
                         "fill": [
-                            { "selector": "input[placeholder*='BIN']", "value": bin }
+                            { 
+                                "selector": "input[placeholder*='BIN']", 
+                                "selector_type": "css",
+                                "value": bin 
+                            }
                         ]
                     },
-                    { "wait": 5000 }  // ← SOLO ESPERAR a que cargue automáticamente
+                    { "wait": 5000 }
                 ]
             }),
             'wait': '8000',
             'timeout': '30000'
         });
 
-        console.log('🔄 Enviando request SUPER SIMPLE a ScrapingBee...');
+        console.log('🔄 Enviando request con selector_type...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
         
         if (!response.ok) {
@@ -383,23 +400,36 @@ app.get('/api/test-login-simple', async (req, res) => {
                     { "wait": 2000 },
                     { 
                         "fill": [
-                            { "selector": "input[type='email']", "value": process.env.CHK_EMAIL }
+                            { 
+                                "selector": "input[type='email']", 
+                                "selector_type": "css",  // ← AÑADIR ESTO
+                                "value": process.env.CHK_EMAIL 
+                            }
                         ]
                     },
                     { 
                         "fill": [
-                            { "selector": "input[type='password']", "value": process.env.CHK_PASSWORD }
+                            { 
+                                "selector": "input[type='password']", 
+                                "selector_type": "css",  // ← AÑADIR ESTO
+                                "value": process.env.CHK_PASSWORD 
+                            }
                         ]
                     },
-                    { "click": { "selector": "button[type='submit']" } },
-                    { "wait": 5000 }  // Solo login
+                    { 
+                        "click": { 
+                            "selector": "button[type='submit']",
+                            "selector_type": "css"  // ← AÑADIR ESTO
+                        } 
+                    },
+                    { "wait": 5000 }
                 ]
             }),
             'wait': '7000',
             'timeout': '30000'
         });
 
-        console.log('🔄 Probando SOLO login simple...');
+        console.log('🔄 Probando SOLO login con selector_type...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
         
         if (!response.ok) {
@@ -411,9 +441,8 @@ app.get('/api/test-login-simple', async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: '✅ Login simple funcionó!',
+            message: '✅ Login con selector_type funcionó!',
             html_length: html.length,
-            // Mostrar parte del HTML para debug
             html_preview: html.substring(0, 1000)
         });
     } catch (error) {

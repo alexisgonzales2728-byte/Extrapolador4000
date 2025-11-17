@@ -1,8 +1,70 @@
-// server.js - VERSIÓN COMPLETA CON MANEJO DE TIMEOUT
-const express = require('express');
-const cors = require('cors');
-const puppeteer = require('puppeteer');
+// server.js - VERSIÓN CON INSTALACIÓN AUTOMÁTICA
+const fs = require('fs');
+const { execSync } = require('child_process');
 
+console.log('🚀 INICIANDO SERVIDOR - Node.js ' + process.version);
+
+// ==================== INSTALACIÓN AUTOMÁTICA ====================
+function installDependencies() {
+    try {
+        console.log('📦 Verificando dependencias...');
+        
+        // Verificar si node_modules existe
+        if (!fs.existsSync('./node_modules/express')) {
+            console.log('🔧 Dependencias faltantes - instalando...');
+            
+            // Crear package.json si no existe
+            if (!fs.existsSync('./package.json')) {
+                console.log('📄 Creando package.json...');
+                const pkg = {
+                    name: "extrapolador-backend",
+                    version: "1.0.0",
+                    main: "server.js",
+                    scripts: { start: "node server.js" },
+                    dependencies: {
+                        "express": "^4.18.2",
+                        "cors": "^2.8.5",
+                        "puppeteer": "^21.11.0"
+                    }
+                };
+                fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));
+            }
+            
+            // Instalar dependencias
+            execSync('npm install', { stdio: 'inherit' });
+            console.log('✅ Dependencias instaladas correctamente');
+        } else {
+            console.log('✅ Dependencias ya instaladas');
+        }
+    } catch (error) {
+        console.error('❌ Error instalando dependencias:', error.message);
+        console.log('🔄 Intentando instalación individual...');
+        try {
+            execSync('npm install express cors puppeteer --no-save', { stdio: 'inherit' });
+        } catch (e) {
+            console.error('💥 Error crítico:', e.message);
+        }
+    }
+}
+
+// Ejecutar instalación
+installDependencies();
+
+// ==================== CARGAR MÓDULOS ====================
+console.log('🔧 Cargando módulos...');
+let express, cors, puppeteer;
+
+try {
+    express = require('express');
+    cors = require('cors');
+    puppeteer = require('puppeteer');
+    console.log('✅ Módulos cargados correctamente');
+} catch (error) {
+    console.error('❌ Error cargando módulos:', error.message);
+    process.exit(1);
+}
+
+// ==================== CONFIGURACIÓN EXPRESS ====================
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -22,7 +84,8 @@ app.get('/health', (req, res) => {
     res.status(200).json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
-        message: 'Servidor activo - 8GB RAM'
+        message: 'Servidor activo - 8GB RAM',
+        node: process.version
     });
 });
 
@@ -30,12 +93,13 @@ app.get('/api/health', (req, res) => {
     res.status(200).json({ 
         status: 'healthy', 
         timestamp: new Date().toISOString(),
-        resources: '8 vCPU / 8192 MB'
+        resources: '8 vCPU / 8192 MB',
+        node: process.version
     });
 });
 
 // Cache para navegador
-let cachedBrowserPath = '/usr/bin/chromium'; // Forzar ruta específica
+let cachedBrowserPath = '/usr/bin/chromium';
 
 // Puppeteer OPTIMIZADO - CON MANEJO MEJOR DE TIMEOUT
 async function doPuppeteerSearch(bin) {
@@ -53,7 +117,7 @@ async function doPuppeteerSearch(bin) {
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
                 '--no-first-run',
-                '--single-process', // IMPORTANTE: Reduce memoria
+                '--single-process',
                 '--no-zygote',
                 '--disable-features=VizDisplayCompositor'
             ],
@@ -66,7 +130,6 @@ async function doPuppeteerSearch(bin) {
         await page.setDefaultNavigationTimeout(60000);
         await page.setDefaultTimeout(60000);
         
-        // Configuración de rendimiento
         await page.setViewport({ width: 1280, height: 720 });
 
         // Interceptar recursos PESADOS
@@ -84,21 +147,19 @@ async function doPuppeteerSearch(bin) {
         console.log('🌐 Navegando a:', chkUrl);
         
         await page.goto(chkUrl, { 
-            waitUntil: 'domcontentloaded', // MÁS RÁPIDO que networkidle0
+            waitUntil: 'domcontentloaded',
             timeout: 45000
         });
 
         // Login con selectores FLEXIBLES
         console.log('🔑 Iniciando sesión...');
         
-        // Esperar máximo 10 segundos por los campos
         await page.waitForSelector('input[type="email"], input[name="email"], #email', { 
             timeout: 10000 
         }).catch(() => {
             throw new Error('No se encontró el campo email después de 10 segundos');
         });
 
-        // Usar evaluación para encontrar el campo email
         const emailField = await page.evaluate(() => {
             const selectors = [
                 'input[type="email"]',
@@ -115,13 +176,9 @@ async function doPuppeteerSearch(bin) {
             return null;
         });
 
-        if (!emailField) {
-            throw new Error('No se pudo encontrar el campo de email');
-        }
-
+        if (!emailField) throw new Error('No se pudo encontrar el campo de email');
         await page.type(emailField, process.env.CHK_EMAIL, { delay: 20 });
 
-        // Encontrar campo password
         const passwordField = await page.evaluate(() => {
             const selectors = [
                 'input[type="password"]',
@@ -138,13 +195,9 @@ async function doPuppeteerSearch(bin) {
             return null;
         });
 
-        if (!passwordField) {
-            throw new Error('No se pudo encontrar el campo de password');
-        }
-
+        if (!passwordField) throw new Error('No se pudo encontrar el campo de password');
         await page.type(passwordField, process.env.CHK_PASSWORD, { delay: 20 });
 
-        // Hacer click en el botón de login
         const loginClicked = await page.evaluate(() => {
             const buttons = document.querySelectorAll('button, input[type="submit"]');
             for (const button of buttons) {
@@ -155,7 +208,6 @@ async function doPuppeteerSearch(bin) {
                     return true;
                 }
             }
-            // Si no encuentra por texto, intentar con el primer botón submit
             const submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
             if (submitBtn) {
                 submitBtn.click();
@@ -164,11 +216,8 @@ async function doPuppeteerSearch(bin) {
             return false;
         });
 
-        if (!loginClicked) {
-            throw new Error('No se pudo encontrar el botón de login');
-        }
+        if (!loginClicked) throw new Error('No se pudo encontrar el botón de login');
 
-        // Esperar navegación O continuar después de timeout
         try {
             await page.waitForNavigation({ 
                 waitUntil: 'domcontentloaded', 
@@ -177,13 +226,10 @@ async function doPuppeteerSearch(bin) {
             console.log('✅ Navegación login completada');
         } catch (navError) {
             console.log('⚠️ Timeout navegación login, continuando...');
-            // Continuar aunque falle la navegación
         }
 
-        // Esperar a que cargue la página
         await page.waitForTimeout(3000);
 
-        // Buscar BIN con selectores flexibles
         console.log('🎯 Buscando BIN:', bin);
         
         const searchField = await page.evaluate(() => {
@@ -203,29 +249,17 @@ async function doPuppeteerSearch(bin) {
         });
 
         if (!searchField) {
-            // Tomar screenshot para debug
             await page.screenshot({ path: '/tmp/debug-search.png' });
             throw new Error('No se encontró el campo de búsqueda BIN');
         }
 
         await page.type(searchField, bin, { delay: 20 });
         await page.keyboard.press('Enter');
-        
-        // Esperar resultados
         await page.waitForTimeout(4000);
 
-        // Extraer datos
         const resultados = await page.evaluate(() => {
             const datos = [];
-            
-            // Múltiples formas de encontrar datos
-            const selectors = [
-                'table tbody tr',
-                '.table tbody tr',
-                'tr',
-                '.row',
-                '.item'
-            ];
+            const selectors = ['table tbody tr', '.table tbody tr', 'tr'];
             
             for (const selector of selectors) {
                 const filas = document.querySelectorAll(selector);
@@ -236,32 +270,22 @@ async function doPuppeteerSearch(bin) {
                         const matches = texto.match(regex);
                         if (matches) datos.push(...matches);
                     });
-                    break; // Usar el primer selector que funcione
+                    break;
                 }
             }
-            
             return datos;
         });
 
         console.log(`✅ Puppeteer: ${resultados.length} tarjetas encontradas`);
         
-        return {
-            success: true, 
-            count: resultados.length,
-            data: resultados
-        };
+        return { success: true, count: resultados.length, data: resultados };
 
     } catch (error) {
         console.error('❌ Error en Puppeteer:', error.message);
-        
-        // Tomar screenshot en caso de error
         try {
             await page.screenshot({ path: '/tmp/error-screenshot.png' });
             console.log('📸 Screenshot guardado en /tmp/error-screenshot.png');
-        } catch (e) {
-            console.log('No se pudo tomar screenshot del error');
-        }
-        
+        } catch (e) {}
         throw error;
     } finally {
         if (browser) await browser.close().catch(console.error);
@@ -271,20 +295,21 @@ async function doPuppeteerSearch(bin) {
 // ==================== RUTAS PRINCIPALES ====================
 app.get('/', (req, res) => {
     res.json({ 
-        message: '🎉 Extrapolador Backend API - CON 8GB RAM',
-        status: '🟢 ONLINE',
+        message: '🎉 Extrapolador Backend API - CON INSTALACIÓN AUTOMÁTICA',
+        status: '🟢 ONLINE', 
+        node: process.version,
         resources: '8 vCPU / 8192 MB',
         endpoints: {
-            health: '/api/health (GET)',
+            health: '/api/health',
             search: '/api/search-bin (POST)',
-            test: '/api/test-puppeteer (GET)'
+            test: '/api/test-puppeteer',
+            debug: '/api/debug'
         }
     });
 });
 
 app.post('/api/search-bin', async (req, res) => {
     const { bin } = req.body;
-    
     if (!bin || bin.length !== 6) {
         return res.status(400).json({ error: 'BIN debe tener exactamente 6 dígitos' });
     }
@@ -293,11 +318,7 @@ app.post('/api/search-bin', async (req, res) => {
     
     try {
         const result = await doPuppeteerSearch(bin);
-        res.json({
-            ...result,
-            source: 'puppeteer_8gb_ram'
-        });
-
+        res.json({ ...result, source: 'puppeteer_8gb_ram' });
     } catch (error) {
         console.error('❌ Error en búsqueda:', error.message);
         res.status(500).json({ 
@@ -315,18 +336,13 @@ app.get('/api/test-puppeteer', async (req, res) => {
         browser = await puppeteer.launch({
             executablePath: '/usr/bin/chromium',
             headless: "new",
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage'
-            ],
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
             timeout: 30000
         });
         
         const page = await browser.newPage();
         await page.goto('https://example.com', { 
-            waitUntil: 'domcontentloaded',
-            timeout: 20000 
+            waitUntil: 'domcontentloaded', timeout: 20000 
         });
         const title = await page.title();
         
@@ -337,25 +353,17 @@ app.get('/api/test-puppeteer', async (req, res) => {
             resources: '8 vCPU / 8192 MB'
         });
     } catch (error) {
-        console.error('❌ Error en test Puppeteer:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message 
-        });
+        res.status(500).json({ success: false, error: error.message });
     } finally {
         if (browser) await browser.close();
     }
 });
 
-// Ruta para debug
 app.get('/api/debug', (req, res) => {
     const fs = require('fs');
-    const paths = [
-        '/usr/bin/chromium',
-        '/usr/bin/chromium-browser'
-    ];
-    
+    const paths = ['/usr/bin/chromium', '/usr/bin/chromium-browser'];
     const results = {};
+    
     paths.forEach(path => {
         try {
             results[path] = {
@@ -369,6 +377,7 @@ app.get('/api/debug', (req, res) => {
     
     res.json({ 
         browserPaths: results,
+        nodeVersion: process.version,
         environment: {
             CHK_URL: process.env.CHK_URL ? '✅ Configurado' : '❌ No configurado',
             CHK_EMAIL: process.env.CHK_EMAIL ? '✅ Configurado' : '❌ No configurado',
@@ -381,18 +390,8 @@ app.get('/api/debug', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🎉 🎉 🎉 SERVIDOR ACTIVO en puerto ${PORT}`);
     console.log(`💪 RECURSOS: 8 vCPU / 8192 MB RAM`);
-    console.log(`🔧 Health: http://0.0.0.0:${PORT}/health`);
-    console.log(`🔧 Debug: http://0.0.0.0:${PORT}/api/debug`);
-    console.log(`🚀 Ready para extrapolación!`);
+    console.log(`🔧 Node.js: ${process.version}`);
+    console.log(`🚀 INSTALACIÓN AUTOMÁTICA ACTIVADA`);
 });
 
-// Manejo de graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('🛑 SIGTERM recibido, cerrando...');
-    process.exit(0);
-});
-
-process.on('SIGINT', () => {
-    console.log('🛑 SIGINT recibido, cerrando...');
-    process.exit(0);
-});
+console.log('✅ Servidor con instalación automática - LISTO!');

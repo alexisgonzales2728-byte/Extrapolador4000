@@ -256,8 +256,7 @@ app.get('/api/test-puppeteer', async (req, res) => {
     }
 });
 
-// Ruta PRINCIPAL: ScrapingBee SIN Enter
-// Ruta PRINCIPAL: ScrapingBee con selector_type
+// Ruta PRINCIPAL: ScrapingBee con formato corregido
 app.post('/api/search-bin', async (req, res) => {
     const { bin } = req.body;
     
@@ -282,22 +281,18 @@ app.post('/api/search-bin', async (req, res) => {
                 "instructions": [
                     { "wait": 2000 },
                     { 
-                        "fill": [
-                            { 
-                                "selector": "input[type='email']", 
-                                "selector_type": "css",
-                                "value": process.env.CHK_EMAIL 
-                            }
-                        ]
+                        "fill": {
+                            "selector": "input[type='email']", 
+                            "selector_type": "css",
+                            "value": process.env.CHK_EMAIL 
+                        }
                     },
                     { 
-                        "fill": [
-                            { 
-                                "selector": "input[type='password']", 
-                                "selector_type": "css",
-                                "value": process.env.CHK_PASSWORD 
-                            }
-                        ]
+                        "fill": {
+                            "selector": "input[type='password']", 
+                            "selector_type": "css",
+                            "value": process.env.CHK_PASSWORD 
+                        }
                     },
                     { 
                         "click": { 
@@ -307,13 +302,11 @@ app.post('/api/search-bin', async (req, res) => {
                     },
                     { "wait": 3000 },
                     { 
-                        "fill": [
-                            { 
-                                "selector": "input[placeholder*='BIN']", 
-                                "selector_type": "css",
-                                "value": bin 
-                            }
-                        ]
+                        "fill": {
+                            "selector": "input[placeholder*='BIN']", 
+                            "selector_type": "css",
+                            "value": bin 
+                        }
                     },
                     { "wait": 5000 }
                 ]
@@ -322,7 +315,7 @@ app.post('/api/search-bin', async (req, res) => {
             'timeout': '30000'
         });
 
-        console.log('🔄 Enviando request con selector_type...');
+        console.log('🔄 Enviando request con formato corregido...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
         
         if (!response.ok) {
@@ -399,27 +392,23 @@ app.get('/api/test-login-simple', async (req, res) => {
                 "instructions": [
                     { "wait": 2000 },
                     { 
-                        "fill": [
-                            { 
-                                "selector": "input[type='email']", 
-                                "selector_type": "css",  // ← AÑADIR ESTO
-                                "value": process.env.CHK_EMAIL 
-                            }
-                        ]
+                        "fill": {
+                            "selector": "input[type='email']", 
+                            "selector_type": "css",
+                            "value": process.env.CHK_EMAIL 
+                        }
                     },
                     { 
-                        "fill": [
-                            { 
-                                "selector": "input[type='password']", 
-                                "selector_type": "css",  // ← AÑADIR ESTO
-                                "value": process.env.CHK_PASSWORD 
-                            }
-                        ]
+                        "fill": {
+                            "selector": "input[type='password']", 
+                            "selector_type": "css",
+                            "value": process.env.CHK_PASSWORD 
+                        }
                     },
                     { 
                         "click": { 
                             "selector": "button[type='submit']",
-                            "selector_type": "css"  // ← AÑADIR ESTO
+                            "selector_type": "css"
                         } 
                     },
                     { "wait": 5000 }
@@ -429,7 +418,7 @@ app.get('/api/test-login-simple', async (req, res) => {
             'timeout': '30000'
         });
 
-        console.log('🔄 Probando SOLO login con selector_type...');
+        console.log('🔄 Probando SOLO login con formato corregido...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
         
         if (!response.ok) {
@@ -441,7 +430,7 @@ app.get('/api/test-login-simple', async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: '✅ Login con selector_type funcionó!',
+            message: '✅ Login con formato corregido funcionó!',
             html_length: html.length,
             html_preview: html.substring(0, 1000)
         });

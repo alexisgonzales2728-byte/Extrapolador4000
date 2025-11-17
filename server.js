@@ -1,4 +1,4 @@
-// server.js - VERSIÓN CON INSTALACIÓN AUTOMÁTICA
+// server.js - VERSIÓN CON CORS CORREGIDO
 const fs = require('fs');
 const { execSync } = require('child_process');
 
@@ -9,11 +9,9 @@ function installDependencies() {
     try {
         console.log('📦 Verificando dependencias...');
         
-        // Verificar si node_modules existe
         if (!fs.existsSync('./node_modules/express')) {
             console.log('🔧 Dependencias faltantes - instalando...');
             
-            // Crear package.json si no existe
             if (!fs.existsSync('./package.json')) {
                 console.log('📄 Creando package.json...');
                 const pkg = {
@@ -30,7 +28,6 @@ function installDependencies() {
                 fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));
             }
             
-            // Instalar dependencias
             execSync('npm install', { stdio: 'inherit' });
             console.log('✅ Dependencias instaladas correctamente');
         } else {
@@ -38,7 +35,6 @@ function installDependencies() {
         }
     } catch (error) {
         console.error('❌ Error instalando dependencias:', error.message);
-        console.log('🔄 Intentando instalación individual...');
         try {
             execSync('npm install express cors puppeteer --no-save', { stdio: 'inherit' });
         } catch (e) {
@@ -47,7 +43,6 @@ function installDependencies() {
     }
 }
 
-// Ejecutar instalación
 installDependencies();
 
 // ==================== CARGAR MÓDULOS ====================
@@ -68,24 +63,47 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS
-app.use(cors({
-    origin: ['https://ciber7erroristaschk.com', 'http://localhost:3000', 'http://127.0.0.1:5500'],
-    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    credentials: true
-}));
+// CORS CORREGIDO - PARA PRODUCCIÓN
+const corsOptions = {
+    origin: function (origin, callback) {
+        const allowedOrigins = [
+            'https://ciber7erroristaschk.com',
+            'https://www.ciber7erroristaschk.com',
+            'http://localhost:3000',
+            'http://127.0.0.1:5500',
+            'https://p01--extrapolador-backend--zzznpgbh8lh8.code.run'
+        ];
+        
+        // Permitir requests sin origin (como mobile apps o curl)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.log('🚫 CORS bloqueado para origen:', origin);
+            callback(new Error('No permitido por CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+};
 
-app.options('*', cors());
+app.use(cors(corsOptions));
+
+// Manejar preflight OPTIONS requests
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 
-// Health checks
+// ==================== HEALTH CHECKS ====================
 app.get('/health', (req, res) => {
     res.status(200).json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
         message: 'Servidor activo - 8GB RAM',
-        node: process.version
+        node: process.version,
+        cors: 'Configurado'
     });
 });
 
@@ -94,11 +112,13 @@ app.get('/api/health', (req, res) => {
         status: 'healthy', 
         timestamp: new Date().toISOString(),
         resources: '8 vCPU / 8192 MB',
-        node: process.version
+        node: process.version,
+        origin: req.headers.origin || 'No origin'
     });
 });
 
-// Cache para navegador
+// [MANTÉN TODO EL CÓDIGO DE PUPPETEER IGUAL...]
+// ==================== CACHE NAVEGADOR ====================
 let cachedBrowserPath = '/usr/bin/chromium';
 
 // Puppeteer OPTIMIZADO - CON MANEJO MEJOR DE TIMEOUT
@@ -295,10 +315,11 @@ async function doPuppeteerSearch(bin) {
 // ==================== RUTAS PRINCIPALES ====================
 app.get('/', (req, res) => {
     res.json({ 
-        message: '🎉 Extrapolador Backend API - CON INSTALACIÓN AUTOMÁTICA',
+        message: '🎉 Extrapolador Backend API - CORS CORREGIDO',
         status: '🟢 ONLINE', 
         node: process.version,
         resources: '8 vCPU / 8192 MB',
+        cors: 'Configurado para producción',
         endpoints: {
             health: '/api/health',
             search: '/api/search-bin (POST)',
@@ -314,7 +335,7 @@ app.post('/api/search-bin', async (req, res) => {
         return res.status(400).json({ error: 'BIN debe tener exactamente 6 dígitos' });
     }
 
-    console.log(`🔍 Búsqueda para BIN: ${bin}`);
+    console.log(`🔍 Búsqueda para BIN: ${bin} desde origen: ${req.headers.origin}`);
     
     try {
         const result = await doPuppeteerSearch(bin);
@@ -378,6 +399,7 @@ app.get('/api/debug', (req, res) => {
     res.json({ 
         browserPaths: results,
         nodeVersion: process.version,
+        origin: req.headers.origin,
         environment: {
             CHK_URL: process.env.CHK_URL ? '✅ Configurado' : '❌ No configurado',
             CHK_EMAIL: process.env.CHK_EMAIL ? '✅ Configurado' : '❌ No configurado',
@@ -391,7 +413,8 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`🎉 🎉 🎉 SERVIDOR ACTIVO en puerto ${PORT}`);
     console.log(`💪 RECURSOS: 8 vCPU / 8192 MB RAM`);
     console.log(`🔧 Node.js: ${process.version}`);
-    console.log(`🚀 INSTALACIÓN AUTOMÁTICA ACTIVADA`);
+    console.log(`🌐 CORS: Configurado para producción`);
+    console.log(`🚀 LISTO PARA USAR!`);
 });
 
-console.log('✅ Servidor con instalación automática - LISTO!');
+console.log('✅ Servidor con CORS corregido - LISTO!');

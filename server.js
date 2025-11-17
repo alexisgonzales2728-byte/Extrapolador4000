@@ -1,14 +1,25 @@
-console.log('🟢 INICIANDO SERVER - FASE 1: Cargando módulos...');
+console.log('🔴 DEBUG: Iniciando aplicación...');
+
+// Verificar variables de entorno críticas
+console.log('🔴 DEBUG: Variables de entorno:');
+console.log('- PORT:', process.env.PORT || 3000);
+console.log('- CHK_URL:', process.env.CHK_URL ? 'SET' : 'MISSING');
+console.log('- CHK_EMAIL:', process.env.CHK_EMAIL ? 'SET' : 'MISSING');
+console.log('- NODE_ENV:', process.env.NODE_ENV || 'development');
 
 try {
+    console.log('🔴 DEBUG: Cargando express...');
     const express = require('express');
-    console.log('✅ Express cargado');
+    
+    console.log('🔴 DEBUG: Cargando cors...');
     const cors = require('cors');
-    console.log('✅ CORS cargado');
+    
+    console.log('🔴 DEBUG: Cargando puppeteer...');
     const puppeteer = require('puppeteer');
-    console.log('✅ Puppeteer cargado');
+    
+    console.log('🔴 DEBUG: Todos los módulos cargados OK');
 } catch (error) {
-    console.log('❌ ERROR cargando módulos:', error.message);
+    console.error('❌ ERROR cargando módulos:', error);
     process.exit(1);
 }
 
@@ -19,243 +30,108 @@ const puppeteer = require('puppeteer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-console.log('🟢 FASE 2: Configurando middleware...');
+console.log('🔴 DEBUG: Configurando middleware...');
 
-// CORS
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type']
-}));
-
+// Middleware básico
+app.use(cors());
 app.use(express.json());
 
-console.log('✅ Middleware configurado');
+console.log('🔴 DEBUG: Configurando rutas...');
 
-// Health check con más info
+// Health check MUY simple
 app.get('/api/health', (req, res) => {
-    console.log('🔍 Health check ejecutado');
+    console.log('🔴 DEBUG: Health check llamado');
     res.json({ 
-        status: '✅ Backend funcionando',
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development',
-        port: PORT,
-        puppeteer: 'ACTIVO',
-        memory: process.memoryUsage(),
-        uptime: process.uptime()
+        status: 'OK', 
+        message: 'Servidor funcionando',
+        timestamp: new Date().toISOString()
     });
 });
 
-// Ruta principal
+// Ruta raíz
 app.get('/', (req, res) => {
-    console.log('📦 Ruta raíz accedida');
+    console.log('🔴 DEBUG: Ruta / llamada');
     res.json({ 
-        message: 'Extrapolador Backend API - Northflank',
-        endpoints: {
-            health: '/api/health (GET)',
-            search: '/api/search-bin (POST)'
-        },
-        status: '🟢 ONLINE',
-        debug: {
-            nodeVersion: process.version,
-            platform: process.platform,
-            arch: process.arch,
-            envVariables: {
-                CHK_URL: process.env.CHK_URL ? 'SET' : 'MISSING',
-                CHK_EMAIL: process.env.CHK_EMAIL ? 'SET' : 'MISSING', 
-                CHK_PASSWORD: process.env.CHK_PASSWORD ? 'SET' : 'MISSING'
-            }
-        }
+        message: 'Backend funcionando',
+        status: 'ONLINE'
     });
 });
 
-// Ruta TEST simplificada
-app.post('/api/test-puppeteer', async (req, res) => {
-    console.log('🧪 TEST Puppeteer iniciado');
+// Ruta de prueba SIN Puppeteer
+app.get('/api/test', (req, res) => {
+    console.log('🔴 DEBUG: Test route llamado');
+    res.json({ 
+        success: true,
+        message: 'Ruta de prueba funciona sin Puppeteer',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Ruta con Puppeteer SIMPLIFICADA
+app.get('/api/test-puppeteer', async (req, res) => {
+    console.log('🔴 DEBUG: Test Puppeteer iniciado');
     
     let browser;
     try {
-        console.log('🔄 1. Iniciando Puppeteer...');
+        console.log('🔴 DEBUG: Intentando lanzar Puppeteer...');
         
         browser = await puppeteer.launch({
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
-            headless: true,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--single-process'
-            ],
-            timeout: 15000
-        });
-
-        console.log('✅ 2. Puppeteer iniciado correctamente');
-        
-        const page = await browser.newPage();
-        console.log('✅ 3. Nueva página creada');
-        
-        await page.goto('https://httpbin.org/html', { 
-            waitUntil: 'domcontentloaded',
-            timeout: 10000 
-        });
-        
-        console.log('✅ 4. Navegación completada');
-        
-        const title = await page.title();
-        console.log('✅ 5. Título obtenido:', title);
-        
-        res.json({ 
-            success: true, 
-            message: '🧪 TEST EXITOSO - Puppeteer funciona',
-            title: title,
-            steps: [
-                'Puppeteer iniciado',
-                'Página creada', 
-                'Navegación exitosa',
-                'Título obtenido'
             ]
         });
-
-    } catch (error) {
-        console.error('❌ ERROR en test Puppeteer:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message,
-            stack: error.stack,
-            step: 'Revisar en qué paso falló'
-        });
-    } finally {
-        if (browser) {
-            await browser.close().catch(e => console.log('⚠️  Error cerrando navegador:', e));
-            console.log('🔒 Navegador cerrado');
-        }
-    }
-});
-
-// Ruta REAL para scraping (versión debug)
-app.post('/api/search-bin', async (req, res) => {
-    console.log('🔍 Búsqueda REAL iniciada para BIN:', req.body?.bin);
-    console.log('📦 Body completo:', req.body);
-    
-    const { bin } = req.body;
-    
-    if (!bin || bin.length !== 6) {
-        console.log('❌ BIN inválido:', bin);
-        return res.status(400).json({ error: 'BIN debe tener exactamente 6 dígitos' });
-    }
-
-    let browser;
-    
-    try {
-        console.log('🔄 PASO 1: Iniciando Puppeteer...');
         
-        browser = await puppeteer.launch({
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--single-process'
-            ],
-            timeout: 30000
-        });
-
-        console.log('✅ PASO 1: Puppeteer iniciado');
-
+        console.log('🔴 DEBUG: Puppeteer lanzado exitosamente');
+        
         const page = await browser.newPage();
-        console.log('✅ PASO 2: Nueva página creada');
+        await page.goto('https://example.com', { waitUntil: 'domcontentloaded' });
+        const title = await page.title();
         
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        console.log('✅ PASO 3: User Agent configurado');
-
-        const chkUrl = process.env.CHK_URL;
-        console.log('🌐 PASO 4: Navegando a:', chkUrl);
+        console.log('🔴 DEBUG: Título obtenido:', title);
         
-        await page.goto(chkUrl, { 
-            waitUntil: 'domcontentloaded',
-            timeout: 30000 
+        res.json({
+            success: true,
+            message: 'Puppeteer funciona correctamente',
+            title: title
         });
-
-        console.log('✅ PASO 4: Navegación completada');
-        console.log('📄 URL actual:', page.url());
-
-        // SIMULAMOS EXTRACCIÓN POR AHORA
-        console.log('🎯 PASO 5: Simulando extracción...');
-        await page.waitForTimeout(2000);
         
-        res.json({ 
-            success: true, 
-            count: 0,
-            data: [],
-            message: `Búsqueda en modo DEBUG para BIN: ${bin}`,
-            debug: {
-                stepsCompleted: [
-                    'Puppeteer iniciado',
-                    'Página creada',
-                    'Navegación completada', 
-                    'Extracción simulada'
-                ],
-                url: chkUrl,
-                env: {
-                    CHK_EMAIL: process.env.CHK_EMAIL ? 'SET' : 'MISSING',
-                    CHK_PASSWORD: process.env.CHK_PASSWORD ? 'SET' : 'MISSING'
-                }
-            }
-        });
-
     } catch (error) {
-        console.error('❌ ERROR CRÍTICO en búsqueda:');
-        console.error('Mensaje:', error.message);
-        console.error('Stack:', error.stack);
-        console.error('En paso:', error.step || 'desconocido');
-        
-        res.status(500).json({ 
-            success: false, 
-            error: `Error: ${error.message}`,
-            stack: process.env.NODE_ENV === 'production' ? undefined : error.stack,
-            step: 'Verificar logs para detalles completos'
+        console.error('🔴 DEBUG: Error en Puppeteer:', error.message);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            message: 'Puppeteer falló'
         });
     } finally {
         if (browser) {
-            await browser.close().catch(e => console.log('⚠️  Error cerrando navegador:', e));
-            console.log('🔒 Navegador cerrado en finally');
+            await browser.close();
+            console.log('🔴 DEBUG: Browser cerrado');
         }
     }
 });
 
-// Manejo de rutas no encontradas
-app.use('*', (req, res) => {
-    console.log('❌ Ruta no encontrada:', req.originalUrl);
-    res.status(404).json({ 
-        error: 'Ruta no encontrada',
-        path: req.originalUrl,
-        availableEndpoints: ['/', '/api/health', '/api/test-puppeteer', '/api/search-bin']
-    });
-});
+console.log('🔴 DEBUG: Todas las rutas configuradas');
 
-// Manejo global de errores
-app.use((err, req, res, next) => {
-    console.error('💥 ERROR GLOBAL NO MANEJADO:');
-    console.error(err);
-    res.status(500).json({ 
-        error: 'Error interno del servidor',
-        details: process.env.NODE_ENV === 'production' ? null : err.message,
-        stack: process.env.NODE_ENV === 'production' ? null : err.stack
-    });
-});
-
-console.log('🟢 FASE 3: Iniciando servidor...');
-
+// Iniciar servidor
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 SERVERSERVER INICIADO CORRECTAMENTE`);
-    console.log(`📍 Puerto: ${PORT}`);
-    console.log(`🌐 Host: 0.0.0.0`);
-    console.log(`🔗 Health: http://0.0.0.0:${PORT}/api/health`);
-    console.log(`📊 Entorno: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🧠 Node.js: ${process.version}`);
-    console.log(`📦 Dependencias: Express, CORS, Puppeteer ✅`);
-    console.log('=' .repeat(50));
+    console.log('='.repeat(50));
+    console.log('✅ SERVIDOR INICIADO EXITOSAMENTE');
+    console.log('✅ Puerto:', PORT);
+    console.log('✅ Host: 0.0.0.0');
+    console.log('✅ Tiempo:', new Date().toISOString());
+    console.log('='.repeat(50));
 });
 
-console.log('🟢 FASE 4: Server.js cargado completamente');
+// Manejo de errores no capturados
+process.on('uncaughtException', (error) => {
+    console.error('💥 ERROR NO CAPTURADO:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('💥 PROMISE RECHAZADA NO MANEJADA:', reason);
+});
+
+console.log('🔴 DEBUG: Manejadores de errores configurados');

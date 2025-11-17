@@ -1,74 +1,28 @@
-// server.js - VERSIÓN CORREGIDA
-const { execSync } = require('child_process');
-const fs = require('fs');
+// server.js - VERSIÓN COMPLETA CON MANEJO DE TIMEOUT
+const express = require('express');
+const cors = require('cors');
+const puppeteer = require('puppeteer');
 
-// ==================== INSTALACIÓN SEGURA ====================
-console.log('🔧 INICIANDO SERVIDOR...');
-
-function safeRequire(moduleName) {
-    try {
-        console.log(`📦 Cargando: ${moduleName}`);
-        return require(moduleName);
-    } catch (error) {
-        if (error.code === 'MODULE_NOT_FOUND') {
-            console.log(`⚠️ Módulo ${moduleName} no encontrado, instalando...`);
-            try {
-                execSync(`npm install ${moduleName} --no-save`, { stdio: 'inherit' });
-                console.log(`✅ ${moduleName} instalado`);
-                return require(moduleName);
-            } catch (installError) {
-                console.error(`💥 Error instalando ${moduleName}:`, installError);
-                // NO usar process.exit() - dejar que el servidor continúe
-                return null;
-            }
-        }
-        throw error;
-    }
-}
-
-// Cargar módulos de forma segura
-const express = safeRequire('express');
-const cors = safeRequire('cors');
-const puppeteer = safeRequire('puppeteer');
-
-if (!express) {
-    console.log('🚨 Express no disponible - instalando todas las dependencias...');
-    try {
-        execSync('npm install express cors puppeteer --production', { stdio: 'inherit' });
-        console.log('✅ Todas las dependencias instaladas');
-    } catch (error) {
-        console.error('💥 Error crítico:', error);
-    }
-}
-
-// Re-cargar módulos después de instalación
-const expressFinal = require('express');
-const corsFinal = require('cors'); 
-const puppeteerFinal = require('puppeteer');
-
-console.log('✅ MÓDULOS CARGADOS CORRECTAMENTE');
-
-// ==================== CONFIGURACIÓN EXPRESS ====================
-const app = expressFinal();
+const app = express();
 const PORT = process.env.PORT || 3000;
 
 // CORS
-app.use(corsFinal({
+app.use(cors({
     origin: ['https://ciber7erroristaschk.com', 'http://localhost:3000', 'http://127.0.0.1:5500'],
     methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true
 }));
 
-app.options('*', corsFinal());
-app.use(expressFinal.json());
+app.options('*', cors());
+app.use(express.json());
 
-// ==================== HEALTH CHECKS ====================
+// Health checks
 app.get('/health', (req, res) => {
     res.status(200).json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
-        message: 'Servidor activo con 8GB RAM'
+        message: 'Servidor activo - 8GB RAM'
     });
 });
 
@@ -80,123 +34,216 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// ==================== CACHE NAVEGADOR ====================
-let cachedBrowserPath = null;
+// Cache para navegador
+let cachedBrowserPath = '/usr/bin/chromium'; // Forzar ruta específica
 
-async function findBrowser() {
-    if (cachedBrowserPath !== null) {
-        console.log(`✅ Usando navegador cacheado en: ${cachedBrowserPath}`);
-        return cachedBrowserPath;
-    }
-
-    const paths = [
-        '/usr/bin/chromium',
-        '/usr/bin/chromium-browser', 
-        '/usr/lib/chromium/chromium',
-        '/usr/lib/chromium/chrome'
-    ];
-    
-    console.log('🔍 Buscando navegador...');
-    
-    for (const path of paths) {
-        try {
-            if (fs.existsSync(path)) {
-                const stats = fs.statSync(path);
-                if (stats.isFile() && (stats.mode & fs.constants.X_OK)) {
-                    console.log(`✅ Navegador encontrado en: ${path}`);
-                    cachedBrowserPath = path;
-                    return path;
-                }
-            }
-        } catch (error) {
-            // Silenciar errores
-        }
-    }
-    
-    console.log('🔍 Usando búsqueda automática de Puppeteer...');
-    cachedBrowserPath = undefined;
-    return undefined;
-}
-
-// ==================== PUPPETEER OPTIMIZADO ====================
+// Puppeteer OPTIMIZADO - CON MANEJO MEJOR DE TIMEOUT
 async function doPuppeteerSearch(bin) {
     let browser;
     
     try {
-        const browserPath = await findBrowser();
-        console.log('⏳ Iniciando Puppeteer OPTIMIZADO...');
+        console.log('⏳ Iniciando Puppeteer...');
         
-        browser = await puppeteerFinal.launch({
-            executablePath: browserPath,
+        browser = await puppeteer.launch({
+            executablePath: cachedBrowserPath,
             headless: "new", 
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
-                '--no-first-run'
+                '--no-first-run',
+                '--single-process', // IMPORTANTE: Reduce memoria
+                '--no-zygote',
+                '--disable-features=VizDisplayCompositor'
             ],
-            timeout: 45000
+            timeout: 60000
         });
 
         const page = await browser.newPage();
         
-        // LIMITAR recursos
+        // Configurar timeouts MÁS LARGOS
+        await page.setDefaultNavigationTimeout(60000);
+        await page.setDefaultTimeout(60000);
+        
+        // Configuración de rendimiento
+        await page.setViewport({ width: 1280, height: 720 });
+
+        // Interceptar recursos PESADOS
         await page.setRequestInterception(true);
         page.on('request', (req) => {
-            if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+            if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
                 req.abort();
             } else {
                 req.continue();
             }
         });
 
-        await page.setDefaultNavigationTimeout(30000);
-        await page.setDefaultTimeout(30000);
-
-        // Navegar
+        // Navegar con waitUntil MÁS RÁPIDO
         const chkUrl = process.env.CHK_URL;
         console.log('🌐 Navegando a:', chkUrl);
         
         await page.goto(chkUrl, { 
-            waitUntil: 'networkidle0',
-            timeout: 30000
+            waitUntil: 'domcontentloaded', // MÁS RÁPIDO que networkidle0
+            timeout: 45000
         });
 
-        // Login
+        // Login con selectores FLEXIBLES
         console.log('🔑 Iniciando sesión...');
-        await page.waitForSelector('input[type="email"]', { timeout: 5000 });
-        await page.type('input[type="email"]', process.env.CHK_EMAIL, { delay: 10 });
-        await page.type('input[type="password"]', process.env.CHK_PASSWORD, { delay: 10 });
         
-        await Promise.all([
-            page.click('button[type="submit"]'),
-            page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 })
-        ]);
+        // Esperar máximo 10 segundos por los campos
+        await page.waitForSelector('input[type="email"], input[name="email"], #email', { 
+            timeout: 10000 
+        }).catch(() => {
+            throw new Error('No se encontró el campo email después de 10 segundos');
+        });
 
-        // Buscar BIN
+        // Usar evaluación para encontrar el campo email
+        const emailField = await page.evaluate(() => {
+            const selectors = [
+                'input[type="email"]',
+                'input[name="email"]', 
+                '#email',
+                'input[placeholder*="email" i]',
+                'input[placeholder*="correo" i]'
+            ];
+            
+            for (const selector of selectors) {
+                const element = document.querySelector(selector);
+                if (element) return selector;
+            }
+            return null;
+        });
+
+        if (!emailField) {
+            throw new Error('No se pudo encontrar el campo de email');
+        }
+
+        await page.type(emailField, process.env.CHK_EMAIL, { delay: 20 });
+
+        // Encontrar campo password
+        const passwordField = await page.evaluate(() => {
+            const selectors = [
+                'input[type="password"]',
+                'input[name="password"]',
+                '#password',
+                'input[placeholder*="password" i]',
+                'input[placeholder*="contraseña" i]'
+            ];
+            
+            for (const selector of selectors) {
+                const element = document.querySelector(selector);
+                if (element) return selector;
+            }
+            return null;
+        });
+
+        if (!passwordField) {
+            throw new Error('No se pudo encontrar el campo de password');
+        }
+
+        await page.type(passwordField, process.env.CHK_PASSWORD, { delay: 20 });
+
+        // Hacer click en el botón de login
+        const loginClicked = await page.evaluate(() => {
+            const buttons = document.querySelectorAll('button, input[type="submit"]');
+            for (const button of buttons) {
+                const text = button.textContent?.toLowerCase() || button.value?.toLowerCase() || '';
+                if (text.includes('login') || text.includes('iniciar') || text.includes('entrar') || 
+                    text.includes('ingresar') || button.type === 'submit') {
+                    button.click();
+                    return true;
+                }
+            }
+            // Si no encuentra por texto, intentar con el primer botón submit
+            const submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitBtn) {
+                submitBtn.click();
+                return true;
+            }
+            return false;
+        });
+
+        if (!loginClicked) {
+            throw new Error('No se pudo encontrar el botón de login');
+        }
+
+        // Esperar navegación O continuar después de timeout
+        try {
+            await page.waitForNavigation({ 
+                waitUntil: 'domcontentloaded', 
+                timeout: 15000 
+            });
+            console.log('✅ Navegación login completada');
+        } catch (navError) {
+            console.log('⚠️ Timeout navegación login, continuando...');
+            // Continuar aunque falle la navegación
+        }
+
+        // Esperar a que cargue la página
+        await page.waitForTimeout(3000);
+
+        // Buscar BIN con selectores flexibles
         console.log('🎯 Buscando BIN:', bin);
-        await page.waitForSelector('input[placeholder="Buscar por BIN de 6 dígitos..."]', { timeout: 5000 });
-        await page.type('input[placeholder="Buscar por BIN de 6 dígitos..."]', bin, { delay: 10 });
+        
+        const searchField = await page.evaluate(() => {
+            const selectors = [
+                'input[placeholder*="BIN" i]',
+                'input[placeholder*="buscar" i]',
+                'input[name*="search" i]',
+                'input[name*="bin" i]',
+                'input[placeholder="Buscar por BIN de 6 dígitos..."]'
+            ];
+            
+            for (const selector of selectors) {
+                const element = document.querySelector(selector);
+                if (element) return selector;
+            }
+            return null;
+        });
+
+        if (!searchField) {
+            // Tomar screenshot para debug
+            await page.screenshot({ path: '/tmp/debug-search.png' });
+            throw new Error('No se encontró el campo de búsqueda BIN');
+        }
+
+        await page.type(searchField, bin, { delay: 20 });
         await page.keyboard.press('Enter');
-        await page.waitForTimeout(2000);
+        
+        // Esperar resultados
+        await page.waitForTimeout(4000);
 
         // Extraer datos
         const resultados = await page.evaluate(() => {
             const datos = [];
-            const filas = document.querySelectorAll('table tbody tr');
             
-            filas.forEach((fila) => {
-                const texto = fila.textContent || fila.innerText;
-                const regex = /\d{16}\|\d{2}\|\d{4}\|\d{3}/g;
-                const matches = texto.match(regex);
-                if (matches) datos.push(...matches);
-            });
+            // Múltiples formas de encontrar datos
+            const selectors = [
+                'table tbody tr',
+                '.table tbody tr',
+                'tr',
+                '.row',
+                '.item'
+            ];
+            
+            for (const selector of selectors) {
+                const filas = document.querySelectorAll(selector);
+                if (filas.length > 0) {
+                    filas.forEach((fila) => {
+                        const texto = fila.textContent || fila.innerText;
+                        const regex = /\d{16}\|\d{2}\|\d{4}\|\d{3}/g;
+                        const matches = texto.match(regex);
+                        if (matches) datos.push(...matches);
+                    });
+                    break; // Usar el primer selector que funcione
+                }
+            }
             
             return datos;
         });
 
-        console.log(`✅ Puppeteer: ${resultados.length} tarjetas`);
+        console.log(`✅ Puppeteer: ${resultados.length} tarjetas encontradas`);
         
         return {
             success: true, 
@@ -205,7 +252,16 @@ async function doPuppeteerSearch(bin) {
         };
 
     } catch (error) {
-        console.error('❌ Error en Puppeteer:', error);
+        console.error('❌ Error en Puppeteer:', error.message);
+        
+        // Tomar screenshot en caso de error
+        try {
+            await page.screenshot({ path: '/tmp/error-screenshot.png' });
+            console.log('📸 Screenshot guardado en /tmp/error-screenshot.png');
+        } catch (e) {
+            console.log('No se pudo tomar screenshot del error');
+        }
+        
         throw error;
     } finally {
         if (browser) await browser.close().catch(console.error);
@@ -243,10 +299,11 @@ app.post('/api/search-bin', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error:', error.message);
+        console.error('❌ Error en búsqueda:', error.message);
         res.status(500).json({ 
             success: false, 
-            error: `Error: ${error.message}`
+            error: `Error: ${error.message}`,
+            suggestion: 'Verifique la conexión y reintente'
         });
     }
 });
@@ -255,26 +312,29 @@ app.get('/api/test-puppeteer', async (req, res) => {
     console.log('🧪 Probando Puppeteer...');
     let browser;
     try {
-        const browserPath = await findBrowser();
-        
-        browser = await puppeteerFinal.launch({
-            executablePath: browserPath,
+        browser = await puppeteer.launch({
+            executablePath: '/usr/bin/chromium',
             headless: "new",
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage'
-            ]
+            ],
+            timeout: 30000
         });
         
         const page = await browser.newPage();
-        await page.goto('https://example.com', { timeout: 15000 });
+        await page.goto('https://example.com', { 
+            waitUntil: 'domcontentloaded',
+            timeout: 20000 
+        });
         const title = await page.title();
         
         res.json({ 
             success: true, 
             message: '✅ Puppeteer FUNCIONA!',
-            title: title
+            title: title,
+            resources: '8 vCPU / 8192 MB'
         });
     } catch (error) {
         console.error('❌ Error en test Puppeteer:', error);
@@ -287,12 +347,52 @@ app.get('/api/test-puppeteer', async (req, res) => {
     }
 });
 
+// Ruta para debug
+app.get('/api/debug', (req, res) => {
+    const fs = require('fs');
+    const paths = [
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser'
+    ];
+    
+    const results = {};
+    paths.forEach(path => {
+        try {
+            results[path] = {
+                exists: fs.existsSync(path),
+                executable: fs.existsSync(path) ? (fs.statSync(path).mode & fs.constants.X_OK) !== 0 : false
+            };
+        } catch (e) {
+            results[path] = { error: e.message };
+        }
+    });
+    
+    res.json({ 
+        browserPaths: results,
+        environment: {
+            CHK_URL: process.env.CHK_URL ? '✅ Configurado' : '❌ No configurado',
+            CHK_EMAIL: process.env.CHK_EMAIL ? '✅ Configurado' : '❌ No configurado',
+            CHK_PASSWORD: process.env.CHK_PASSWORD ? '✅ Configurado' : '❌ No configurado'
+        }
+    });
+});
+
 // ==================== INICIAR SERVIDOR ====================
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🎉 🎉 🎉 SERVIDOR ACTIVO en puerto ${PORT}`);
     console.log(`💪 RECURSOS: 8 vCPU / 8192 MB RAM`);
     console.log(`🔧 Health: http://0.0.0.0:${PORT}/health`);
-    console.log(`🚀 Ready!`);
+    console.log(`🔧 Debug: http://0.0.0.0:${PORT}/api/debug`);
+    console.log(`🚀 Ready para extrapolación!`);
 });
 
-console.log('✅ SERVIDOR INICIADO CORRECTAMENTE');
+// Manejo de graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('🛑 SIGTERM recibido, cerrando...');
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('🛑 SIGINT recibido, cerrando...');
+    process.exit(0);
+});

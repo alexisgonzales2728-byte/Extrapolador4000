@@ -146,6 +146,13 @@ app.get('/api/test-puppeteer', async (req, res) => {
     }
 });
 
+app.use('/api/search-bin', (req, res, next) => {
+    console.log('🟡 /api/search-bin REQUEST RECIBIDO');
+    console.log('🟡 Method:', req.method);
+    console.log('🟡 Headers:', req.headers);
+    next(); // Pasar al siguiente middleware
+});
+
 // Ruta REAL para scraping (OPTIMIZADA)
 app.post('/api/search-bin', async (req, res) => {
     console.log('🔍 Búsqueda para BIN:', req.body.bin);
@@ -175,8 +182,8 @@ app.post('/api/search-bin', async (req, res) => {
                 '--disable-gpu',           // ← Evitar funciones gráficas
                 '--disable-software-rasterizer'  // ← Evitar rasterizador
             ],
-            protocolTimeout: 60000,
-            timeout: 60000         
+            protocolTimeout: 120000,
+            timeout: 120000         
         });
 
         console.log('✅ Puppeteer iniciado después de espera larga');

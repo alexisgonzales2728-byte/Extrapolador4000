@@ -202,63 +202,27 @@ app.post('/api/search-bin', async (req, res) => {
 
         const scrapingbeeUrl = 'https://app.scrapingbee.com/api/v1/';
         
-        // Configuración COMPLETA con custom JavaScript
+        // Configuración COMPLETA con js_scenario
         const params = new URLSearchParams({
             'api_key': process.env.SCRAPINGBEE_API_KEY,
-            'url': process.env.CHK_URL, // Tu sitio
+            'url': process.env.CHK_URL,
             'render_js': 'true',
-            'custom_js': `
-                // ScrapingBee ejecuta este JS en tu sitio
-                console.log('🔑 Iniciando login automático...');
-                
-                // Esperar a que cargue la página
-                setTimeout(() => {
-                    // Llenar email
-                    const emailInput = document.querySelector('input[type="email"]');
-                    if (emailInput) {
-                        emailInput.value = '${process.env.CHK_EMAIL}';
-                    }
-                    
-                    // Llenar password
-                    const passwordInput = document.querySelector('input[type="password"]');
-                    if (passwordInput) {
-                        passwordInput.value = '${process.env.CHK_PASSWORD}';
-                    }
-                    
-                    // Hacer click en login
-                    const loginButton = document.querySelector('button[type="submit"]');
-                    if (loginButton) {
-                        loginButton.click();
-                    }
-                    
-                    // Después del login, buscar el BIN
-                    setTimeout(() => {
-                        const binInput = document.querySelector('input[placeholder*="BIN"]');
-                        if (binInput) {
-                            binInput.value = '${bin}';
-                            binInput.dispatchEvent(new Event('input', { bubbles: true }));
-                            
-                            // Presionar Enter
-                            setTimeout(() => {
-                                const enterEvent = new KeyboardEvent('keydown', {
-                                    key: 'Enter',
-                                    code: 'Enter',
-                                    keyCode: 13,
-                                    which: 13,
-                                    bubbles: true
-                                });
-                                binInput.dispatchEvent(enterEvent);
-                            }, 1000);
-                        }
-                    }, 3000);
-                    
-                }, 2000);
-            `,
-            'wait': '8000', // Esperar 8 segundos para todo el proceso
-            'timeout': '30000',
-            'block_ads': 'true',
-            'block_resources': 'false'
-        });
+            'js_scenario': JSON.stringify({  // ← CAMBIAR A js_scenario CON JSON
+                "instructions": [
+                    { "wait": 2000 },
+                    { "fill": ["input[type='email']", process.env.CHK_EMAIL] },
+                    { "fill": ["input[type='password']", process.env.CHK_PASSWORD] },
+                    { "click": "button[type='submit']" },
+                    { "wait": 3000 },
+                    { "fill": ["input[placeholder*='BIN']", bin] },
+                    { "wait": 1000 },
+                    { "press_key": "Enter" },
+                    { "wait": 4000 }
+                ]
+            }),
+            'wait': '8000',
+            'timeout': '30000'
+        })
 
         console.log('🔄 Enviando request a ScrapingBee...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
@@ -345,7 +309,7 @@ async function doPuppeteerSearch(bin) {
             ],
             timeout: 60000
         });
-        
+
         const page = await browser.newPage();
         await page.setDefaultNavigationTimeout(60000);
         await page.setDefaultTimeout(60000);

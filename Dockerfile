@@ -12,6 +12,7 @@ RUN apk update && apk add --no-cache \
     ttf-freefont \
     dbus  # ← AÑADIR ESTO
 
+    
 # Configurar Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser

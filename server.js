@@ -171,7 +171,9 @@ app.post('/api/search-bin', async (req, res) => {
                 '--no-first-run',            // ✅ Ahorra memoria
                 '--no-zygote',               // ✅ Ahorra memoria
                 '--single-process',          // ✅ MÁS IMPORTANTE - 1 proceso vs 6
-                '--max-old-space-size=128'   // ✅ LIMITA Node.js
+                '--max-old-space-size=128',   // ✅ LIMITA Node.js
+                '--disable-gpu',           // ← Evitar funciones gráficas
+                '--disable-software-rasterizer'  // ← Evitar rasterizador
             ],
             protocolTimeout: 120000,
             timeout: 120000         

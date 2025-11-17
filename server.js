@@ -392,17 +392,17 @@ app.get('/api/test-login-simple', async (req, res) => {
                 "instructions": [
                     { "wait": 2000 },
                     { 
-                        "set_value": {  // ← ACCIÓN DIRECTA
+                        "type": {  // ← PROBAR type
                             "selector": "input[type='email']", 
                             "selector_type": "css",
-                            "value": process.env.CHK_EMAIL 
+                            "text": process.env.CHK_EMAIL 
                         }
                     },
                     { 
-                        "set_value": {  // ← ACCIÓN DIRECTA
+                        "type": {  // ← PROBAR type
                             "selector": "input[type='password']", 
                             "selector_type": "css",
-                            "value": process.env.CHK_PASSWORD 
+                            "text": process.env.CHK_PASSWORD 
                         }
                     },
                     { 
@@ -418,7 +418,7 @@ app.get('/api/test-login-simple', async (req, res) => {
             'timeout': '30000'
         });
 
-        console.log('🔄 Probando con text en lugar de value...');
+        console.log('🔄 Probando con type...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
         
         if (!response.ok) {
@@ -430,7 +430,7 @@ app.get('/api/test-login-simple', async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: '✅ Login con text funcionó!',
+            message: '✅ Login con type funcionó!',
             html_length: html.length,
             html_preview: html.substring(0, 1000)
         });

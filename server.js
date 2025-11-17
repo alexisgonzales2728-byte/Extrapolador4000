@@ -122,7 +122,7 @@ async function doPuppeteerSearch(bin) {
         
         await Promise.all([
             page.click('button[type="submit"]'),
-            page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 10000 })
+            page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 })
         ]);
 
         // Buscar BIN
@@ -241,7 +241,7 @@ app.get('/api/test-puppeteer', async (req, res) => {
         });
         
         const page = await browser.newPage();
-        await page.goto('https://example.com', { timeout: 15000 });
+        await page.goto('https://www.facebook.com/', { timeout: 15000 });
         const title = await page.title();
         
         res.json({ 

@@ -256,7 +256,7 @@ app.get('/api/test-puppeteer', async (req, res) => {
     }
 });
 
-// Ruta PRINCIPAL: ScrapingBee con formato corregido
+// Ruta PRINCIPAL: ScrapingBee con fill como array
 app.post('/api/search-bin', async (req, res) => {
     const { bin } = req.body;
     
@@ -281,18 +281,18 @@ app.post('/api/search-bin', async (req, res) => {
                 "instructions": [
                     { "wait": 2000 },
                     { 
-                        "fill": {
+                        "fill": [{  // ← ARRAY
                             "selector": "input[type='email']", 
                             "selector_type": "css",
                             "value": process.env.CHK_EMAIL 
-                        }
+                        }]
                     },
                     { 
-                        "fill": {
+                        "fill": [{  // ← ARRAY
                             "selector": "input[type='password']", 
                             "selector_type": "css",
                             "value": process.env.CHK_PASSWORD 
-                        }
+                        }]
                     },
                     { 
                         "click": { 
@@ -302,11 +302,11 @@ app.post('/api/search-bin', async (req, res) => {
                     },
                     { "wait": 3000 },
                     { 
-                        "fill": {
+                        "fill": [{  // ← ARRAY
                             "selector": "input[placeholder*='BIN']", 
                             "selector_type": "css",
                             "value": bin 
-                        }
+                        }]
                     },
                     { "wait": 5000 }
                 ]
@@ -315,7 +315,7 @@ app.post('/api/search-bin', async (req, res) => {
             'timeout': '30000'
         });
 
-        console.log('🔄 Enviando request con formato corregido...');
+        console.log('🔄 Enviando request con fill como array...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
         
         if (!response.ok) {
@@ -392,18 +392,18 @@ app.get('/api/test-login-simple', async (req, res) => {
                 "instructions": [
                     { "wait": 2000 },
                     { 
-                        "fill": {
+                        "fill": [{  // ← ARRAY con corchetes
                             "selector": "input[type='email']", 
                             "selector_type": "css",
                             "value": process.env.CHK_EMAIL 
-                        }
+                        }]
                     },
                     { 
-                        "fill": {
+                        "fill": [{  // ← ARRAY con corchetes
                             "selector": "input[type='password']", 
                             "selector_type": "css",
                             "value": process.env.CHK_PASSWORD 
-                        }
+                        }]
                     },
                     { 
                         "click": { 
@@ -418,7 +418,7 @@ app.get('/api/test-login-simple', async (req, res) => {
             'timeout': '30000'
         });
 
-        console.log('🔄 Probando SOLO login con formato corregido...');
+        console.log('🔄 Probando SOLO login con fill como array...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
         
         if (!response.ok) {
@@ -430,7 +430,7 @@ app.get('/api/test-login-simple', async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: '✅ Login con formato corregido funcionó!',
+            message: '✅ Login con fill como array funcionó!',
             html_length: html.length,
             html_preview: html.substring(0, 1000)
         });

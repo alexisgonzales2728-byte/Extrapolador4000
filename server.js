@@ -190,7 +190,7 @@ app.post('/api/search-bin', async (req, res) => {
         
         await page.goto(chkUrl, { 
             waitUntil: 'domcontentloaded',  // MÁS RÁPIDO
-            timeout: 400000
+            timeout: 450000
         });
         // Login
         try {

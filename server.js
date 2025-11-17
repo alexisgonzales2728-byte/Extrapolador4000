@@ -1,4 +1,4 @@
-// server-simple.js - SIN EXPRESS, SIN DEPENDENCIAS
+// server.js - VERSIÓN SIN DEPENDENCIAS EXTERNAS
 console.log('🚀 SERVER NATIVO INICIANDO...');
 
 const http = require('http');
@@ -22,22 +22,29 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
             status: 'OK',
-            message: '✅ Backend funcionando SIN dependencias',
+            message: '✅ Backend funcionando',
             timestamp: new Date().toISOString(),
             environment: process.env.NODE_ENV || 'production'
         }));
-    } else if (req.url === '/api/test' && req.method === 'POST') {
+    } else if (req.url === '/api/search-bin' && req.method === 'POST') {
         // Simular respuesta para BIN
         let body = '';
         req.on('data', chunk => body += chunk);
         req.on('end', () => {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-                success: true,
-                message: 'Modo de prueba - Servidor funcionando',
-                data: [],
-                count: 0
-            }));
+            try {
+                const { bin } = JSON.parse(body);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: true,
+                    message: `Búsqueda simulada para BIN: ${bin}`,
+                    data: [],
+                    count: 0,
+                    debug: 'Modo sin dependencias - Puppeteer no disponible'
+                }));
+            } catch (error) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'JSON inválido' }));
+            }
         });
     } else {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -47,12 +54,9 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log('='.repeat(50));
-    console.log('✅ SERVER NATIVO ACTIVO');
+    console.log('✅ SERVER ACTIVO - Northflank');
     console.log('✅ Puerto:', PORT);
     console.log('✅ Host: 0.0.0.0');
-    console.log('✅ Endpoints:');
-    console.log('✅   GET  /health');
-    console.log('✅   GET  /');
-    console.log('✅   POST /api/test');
+    console.log('✅ URL:', `http://0.0.0.0:${PORT}`);
     console.log('='.repeat(50));
 });

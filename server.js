@@ -392,18 +392,18 @@ app.get('/api/test-login-simple', async (req, res) => {
                 "instructions": [
                     { "wait": 2000 },
                     { 
-                        "fill": [{
+                        "set_value": {  // ← ACCIÓN DIRECTA
                             "selector": "input[type='email']", 
                             "selector_type": "css",
-                            "text": process.env.CHK_EMAIL  // ← CAMBIAR value por text
-                        }]
+                            "value": process.env.CHK_EMAIL 
+                        }
                     },
                     { 
-                        "fill": [{
+                        "set_value": {  // ← ACCIÓN DIRECTA
                             "selector": "input[type='password']", 
                             "selector_type": "css",
-                            "text": process.env.CHK_PASSWORD  // ← CAMBIAR value por text
-                        }]
+                            "value": process.env.CHK_PASSWORD 
+                        }
                     },
                     { 
                         "click": { 

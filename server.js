@@ -56,7 +56,7 @@ async function findBrowser() {
     return undefined;
 }
 
-// Puppeteer OPTIMIZADO para menos RAM
+// Puppeteer OPTIMIZADO
 async function doPuppeteerSearch(bin) {
     let browser;
     
@@ -72,10 +72,7 @@ async function doPuppeteerSearch(bin) {
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu',
-                '--no-first-run',
-                '--single-process',
-                '--no-zygote',
-                '--max-old-space-size=128'
+                '--no-first-run'
             ],
             timeout: 45000
         });
@@ -153,17 +150,17 @@ async function doPuppeteerSearch(bin) {
     }
 }
 
-// Health check ACTUALIZADO
+// Health check
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: '✅ Backend funcionando con Puppeteer optimizado',
         timestamp: new Date().toISOString(),
         provider: 'Northflank + Puppeteer',
-        message: 'Sistema optimizado para bajo consumo de RAM'
+        message: 'Sistema optimizado'
     });
 });
 
-// Ruta principal ACTUALIZADA
+// Ruta principal
 app.get('/', (req, res) => {
     res.json({ 
         message: 'Extrapolador Backend API - Puppeteer Optimizado',
@@ -211,7 +208,12 @@ app.get('/api/test-puppeteer', async (req, res) => {
         
         browser = await puppeteer.launch({
             executablePath: browserPath,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            headless: "new",
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage'
+            ]
         });
         
         const page = await browser.newPage();
@@ -275,5 +277,5 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor en puerto ${PORT}`);
-    console.log(`🔧 Modo: Puppeteer Optimizado (bajo consumo RAM)`);
+    console.log(`🔧 Modo: Puppeteer Optimizado`);
 });

@@ -92,31 +92,63 @@ app.get('/api/test-scrapingbee', async (req, res) => {
         const scrapingbeeUrl = 'https://app.scrapingbee.com/api/v1/';
         const params = new URLSearchParams({
             'api_key': process.env.SCRAPINGBEE_API_KEY,
-            'url': 'https://httpbin.org/html', // Sitio de prueba
-            'render_js': 'false'
+            'url': process.env.CHK_URL,
+            'render_js': 'true',
+            'js_scenario': JSON.stringify({
+                "instructions": [
+                    { "wait": 2000 },
+                    { "fill": ["input[type='email']", process.env.CHK_EMAIL] },
+                    { "fill": ["input[type='password']", process.env.CHK_PASSWORD] },
+                    { "click": "button[type='submit']" },
+                    { "wait": 3000 },
+                    { "fill": ["input[placeholder*='BIN']", bin] },
+                    { "wait": 1000 },
+                    { "press_key": "Enter" },
+                    { "wait": 4000 }
+                ]
+            }),
+            'wait': '8000',
+            'timeout': '30000'
         });
 
+        console.log('🔄 Enviando request a ScrapingBee...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
-        
+
         if (!response.ok) {
-            throw new Error(`ScrapingBee error: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`ScrapingBee HTTP ${response.status}: ${errorText}`);
         }
 
         const html = await response.text();
+        console.log('✅ HTML recibido de ScrapingBee, longitud:', html.length);
         
         res.json({ 
             success: true, 
-            message: '✅ ScrapingBee funciona!',
-            html_length: html.length,
-            test: 'Básico OK'
+            count: resultados.length,
+            data: resultados,
+            source: 'scrapingbee',
+            message: `Búsqueda completada para BIN: ${bin} (vía ScrapingBee)`
         });
+
     } catch (error) {
-        console.error('❌ Error test ScrapingBee:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message,
-            test: 'Falló'
-        });
+        console.error('❌ Error con ScrapingBee:', error.message);
+        
+        // FALLBACK a Puppeteer local
+        console.log('🔄 Intentando fallback con Puppeteer local...');
+        try {
+            const fallbackResult = await doPuppeteerSearch(bin);
+            res.json({
+                ...fallbackResult,
+                source: 'puppeteer_fallback',
+                note: 'ScrapingBee falló, usando Puppeteer local'
+            });
+        } catch (fallbackError) {
+            res.status(500).json({ 
+                success: false, 
+                error: `Ambos métodos fallaron: ${error.message}`,
+                source: 'error'
+            });
+        }
     }
 });
 
@@ -306,14 +338,14 @@ async function doPuppeteerSearch(bin) {
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--single-process',
                 '--disable-dev-shm-usage',
-                '--no-first-run',
-                '--no-zygote'
+                '--single-process',
+                '--no-zygote',
+                '--disable-gpu'
             ],
             timeout: 60000
         });
-
+        
         const page = await browser.newPage();
         await page.setDefaultNavigationTimeout(60000);
         await page.setDefaultTimeout(60000);

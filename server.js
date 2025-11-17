@@ -267,9 +267,18 @@ app.post('/api/search-bin', async (req, res) => {
     }
 });
 
+// Ruta GET informativa
+app.get('/api/search-bin', (req, res) => {
+    res.status(405).json({ 
+        error: 'Método incorrecto',
+        message: 'Usa POST en lugar de GET',
+        ejemplo: 'curl -X POST https://p01--extrapolador-backend--zzznpgbh8lh8.code.run/api/search-bin -H "Content-Type: application/json" -d \'{"bin":"426807"}\''
+    });
+});
+
 // Manejo de rutas no encontradas
 app.use('*', (req, res) => {
-    res.status(404).json({ error: 'Ruta ñooo encontrada' });
+    res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
 app.listen(PORT, '0.0.0.0', () => {

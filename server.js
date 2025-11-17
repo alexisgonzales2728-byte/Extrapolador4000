@@ -211,17 +211,49 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Entorno: ${process.env.NODE_ENV || 'production'}`);
 });
 
-app.get('/api/debug-chromium', async (req, res) => {
+app.get('/api/debug-chromium', (req, res) => {
     const fs = require('fs');
-    const path = '/usr/bin/chromium-browser';
+    const { execSync } = require('child_process');
     
     try {
-        const exists = fs.existsSync(path);
+        // Verificar rutas comunes de Chromium
+        const paths = [
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/usr/bin/chrome',
+            '/usr/bin/google-chrome',
+            '/usr/lib/chromium/chromium'
+        ];
+        
+        const pathCheck = {};
+        paths.forEach(path => {
+            pathCheck[path] = fs.existsSync(path);
+        });
+        
+        // Verificar si hay chromium instalado
+        let chromiumVersion = 'NOT FOUND';
+        try {
+            chromiumVersion = execSync('which chromium-browser || which chromium || echo "NOT FOUND"', { encoding: 'utf8' }).trim();
+        } catch (e) {
+            chromiumVersion = 'ERROR: ' + e.message;
+        }
+        
+        // Listar archivos en /usr/bin/
+        let usrBinFiles = [];
+        try {
+            usrBinFiles = fs.readdirSync('/usr/bin').filter(f => f.includes('chrom'));
+        } catch (e) {
+            usrBinFiles = ['ERROR: ' + e.message];
+        }
+        
         res.json({
-            chromiumPath: path,
-            exists: exists,
-            puppeteerExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-            filesInUsrBin: fs.readdirSync('/usr/bin').filter(f => f.includes('chrom'))
+            paths: pathCheck,
+            chromiumVersion: chromiumVersion,
+            filesInUsrBin: usrBinFiles,
+            environment: {
+                PUPPETEER_EXECUTABLE_PATH: process.env.PUPPETEER_EXECUTABLE_PATH,
+                NODE_ENV: process.env.NODE_ENV
+            }
         });
     } catch (error) {
         res.json({ error: error.message });

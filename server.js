@@ -189,53 +189,16 @@ app.get('/api/test-scrapingbee', async (req, res) => {
         }
 
         const scrapingbeeUrl = 'https://app.scrapingbee.com/api/v1/';
+        
+        // ✅ SOLO probar carga básica
         const params = new URLSearchParams({
             'api_key': process.env.SCRAPINGBEE_API_KEY,
-            'url': process.env.CHK_URL,
-            'render_js': 'true',
-            'js_scenario': JSON.stringify({
-                "instructions": [
-                    { "wait": 2000 },
-                    { 
-                        "fill": [
-                            { 
-                                "selector": "input[type='email']", 
-                                "value": process.env.CHK_EMAIL 
-                            }
-                        ]
-                    },
-                    { 
-                        "fill": [
-                            { 
-                                "selector": "input[type='password']", 
-                                "value": process.env.CHK_PASSWORD 
-                            }
-                        ]
-                    },
-                    { 
-                        "click": { 
-                            "selector": "button[type='submit']" 
-                        } 
-                    },
-                    { "wait": 3000 },
-                    { 
-                        "fill": [
-                            { 
-                                "selector": "input[placeholder*='BIN']", 
-                                "value": "426807"
-                            }
-                        ]
-                    },
-                    { "wait": 1000 },
-                    { "send_keys": "Enter" },
-                    { "wait": 4000 }
-                ]
-            }),
-            'wait': '8000',
-            'timeout': '30000'
+            'url': 'https://httpbin.org/html',  // Sitio de prueba simple
+            'render_js': 'false',  // Sin JS
+            'timeout': '10000'
         });
 
-        console.log('🔄 Probando ScrapingBee con js_scenario...');
+        console.log('🔄 Probando ScrapingBee básico...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
         
         if (!response.ok) {
@@ -247,16 +210,16 @@ app.get('/api/test-scrapingbee', async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: '✅ ScrapingBee funciona con js_scenario!',
+            message: '✅ ScrapingBee básico funciona!',
             html_length: html.length,
-            test: 'Completo OK'
+            test: 'Básico OK'
         });
     } catch (error) {
         console.error('❌ Error test ScrapingBee:', error);
         res.status(500).json({ 
             success: false, 
             error: error.message,
-            test: 'Falló js_scenario'
+            test: 'Falló básico'
         });
     }
 });
@@ -293,7 +256,7 @@ app.get('/api/test-puppeteer', async (req, res) => {
     }
 });
 
-// Ruta PRINCIPAL: ScrapingBee con fallback a Puppeteer
+// Ruta PRINCIPAL: ScrapingBee SIN Enter
 app.post('/api/search-bin', async (req, res) => {
     const { bin } = req.body;
     
@@ -310,6 +273,7 @@ app.post('/api/search-bin', async (req, res) => {
 
         const scrapingbeeUrl = 'https://app.scrapingbee.com/api/v1/';
         
+        // ✅ SUPER SIMPLE - solo escribir BIN y esperar
         const params = new URLSearchParams({
             'api_key': process.env.SCRAPINGBEE_API_KEY,
             'url': process.env.CHK_URL,
@@ -334,16 +298,14 @@ app.post('/api/search-bin', async (req, res) => {
                             { "selector": "input[placeholder*='BIN']", "value": bin }
                         ]
                     },
-                    { "wait": 1000 },
-                    { "send_keys": "Enter" },
-                    { "wait": 4000 }
+                    { "wait": 5000 }  // ← SOLO ESPERAR a que cargue automáticamente
                 ]
             }),
             'wait': '8000',
             'timeout': '30000'
         });
 
-        console.log('🔄 Enviando request a ScrapingBee...');
+        console.log('🔄 Enviando request SUPER SIMPLE a ScrapingBee...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
         
         if (!response.ok) {
@@ -405,6 +367,59 @@ app.post('/api/search-bin-puppeteer', async (req, res) => {
         res.status(500).json({ 
             success: false, 
             error: `Error Puppeteer: ${error.message}` 
+        });
+    }
+});
+
+app.get('/api/test-login-simple', async (req, res) => {
+    try {
+        const scrapingbeeUrl = 'https://app.scrapingbee.com/api/v1/';
+        const params = new URLSearchParams({
+            'api_key': process.env.SCRAPINGBEE_API_KEY,
+            'url': process.env.CHK_URL,
+            'render_js': 'true',
+            'js_scenario': JSON.stringify({
+                "instructions": [
+                    { "wait": 2000 },
+                    { 
+                        "fill": [
+                            { "selector": "input[type='email']", "value": process.env.CHK_EMAIL }
+                        ]
+                    },
+                    { 
+                        "fill": [
+                            { "selector": "input[type='password']", "value": process.env.CHK_PASSWORD }
+                        ]
+                    },
+                    { "click": { "selector": "button[type='submit']" } },
+                    { "wait": 5000 }  // Solo login
+                ]
+            }),
+            'wait': '7000',
+            'timeout': '30000'
+        });
+
+        console.log('🔄 Probando SOLO login simple...');
+        const response = await fetch(scrapingbeeUrl + '?' + params);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`ScrapingBee HTTP ${response.status}: ${errorText}`);
+        }
+
+        const html = await response.text();
+        
+        res.json({ 
+            success: true, 
+            message: '✅ Login simple funcionó!',
+            html_length: html.length,
+            // Mostrar parte del HTML para debug
+            html_preview: html.substring(0, 1000)
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            error: error.message
         });
     }
 });

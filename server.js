@@ -150,13 +150,23 @@ async function doPuppeteerSearch(bin) {
     }
 }
 
-// Health check
+// Health check para Northflank Liveness Probe
 app.get('/api/health', (req, res) => {
-    res.json({ 
-        status: '✅ Backend funcionando con Puppeteer optimizado',
+    res.status(200).json({ 
+        status: 'healthy',
         timestamp: new Date().toISOString(),
-        provider: 'Northflank + Puppeteer',
-        message: 'Sistema optimizado'
+        service: 'extrapolador-backend',
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        version: process.version
+    });
+});
+
+// Health check adicional
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'healthy',
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -165,11 +175,12 @@ app.get('/', (req, res) => {
     res.json({ 
         message: 'Extrapolador Backend API - Puppeteer Optimizado',
         endpoints: {
-            health: '/api/health (GET)',
+            health: '/api/health (GET) - Liveness Probe',
+            health2: '/health (GET) - Health check simple',
             search: '/api/search-bin (POST) - Búsqueda principal',
             test: '/api/test-puppeteer (GET)'
         },
-        status: '🟢 ONLINE OPTIMIZADO'
+        status: '🟢 ONLINE'
     });
 });
 
@@ -277,5 +288,6 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor en puerto ${PORT}`);
-    console.log(`🔧 Modo: Puppeteer Optimizado`);
+    console.log(`🔧 Liveness Probe: /api/health`);
+    console.log(`🔧 Health Check: /health`);
 });

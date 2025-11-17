@@ -81,7 +81,9 @@ app.post('/api/search-bin', async (req, res) => {
     
     try {
         // Configuración optimizada para Docker
+        // En la parte de Puppeteer, usa esta configuración:
         browser = await puppeteer.launch({
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -89,9 +91,9 @@ app.post('/api/search-bin', async (req, res) => {
                 '--disable-accelerated-2d-canvas',
                 '--no-first-run',
                 '--no-zygote',
-                '--disable-gpu'
-            ],
-            timeout: 30000
+                '--disable-gpu',
+                '--single-process'
+            ]
         });
 
         const page = await browser.newPage();
@@ -207,4 +209,21 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Puppeteer: ACTIVO CON CHROMIUM`);
     console.log(`🔗 Health: http://0.0.0.0:${PORT}/api/health`);
     console.log(`🌐 Entorno: ${process.env.NODE_ENV || 'production'}`);
+});
+
+app.get('/api/debug-chromium', async (req, res) => {
+    const fs = require('fs');
+    const path = '/usr/bin/chromium-browser';
+    
+    try {
+        const exists = fs.existsSync(path);
+        res.json({
+            chromiumPath: path,
+            exists: exists,
+            puppeteerExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+            filesInUsrBin: fs.readdirSync('/usr/bin').filter(f => f.includes('chrom'))
+        });
+    } catch (error) {
+        res.json({ error: error.message });
+    }
 });

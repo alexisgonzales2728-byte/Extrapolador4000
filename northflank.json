@@ -1,0 +1,18 @@
+{
+  "build": {
+    "type": "node",
+    "buildCommand": "npm install",
+    "startCommand": "node server.js"
+  },
+  "deploy": {
+    "services": {
+      "web": {
+        "instances": 1,
+        "resources": {
+          "memory": 8192,
+          "cpu": 4000
+        }
+      }
+    }
+  }
+}

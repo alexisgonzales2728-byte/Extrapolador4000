@@ -1,3 +1,30 @@
+// AGREGA ESTO AL INICIO del server.js
+const { execSync } = require('child_process');
+const fs = require('fs');
+
+// Verificar e instalar dependencias automáticamente
+function installDependencies() {
+    try {
+        console.log('📦 Verificando dependencias...');
+        
+        // Verificar si node_modules existe
+        if (!fs.existsSync('./node_modules/express')) {
+            console.log('🔧 Instalando dependencias faltantes...');
+            execSync('npm install', { stdio: 'inherit' });
+            console.log('✅ Dependencias instaladas');
+        } else {
+            console.log('✅ Dependencias ya instaladas');
+        }
+    } catch (error) {
+        console.error('❌ Error instalando dependencias:', error);
+        process.exit(1);
+    }
+}
+
+// Ejecutar instalación
+installDependencies();
+
+
 const express = require('express');
 const cors = require('cors');
 const puppeteer = require('puppeteer');

@@ -392,17 +392,17 @@ app.get('/api/test-login-simple', async (req, res) => {
                 "instructions": [
                     { "wait": 2000 },
                     { 
-                        "fill": [{  // ← ARRAY con corchetes
+                        "fill": [{
                             "selector": "input[type='email']", 
                             "selector_type": "css",
-                            "value": process.env.CHK_EMAIL 
+                            "text": process.env.CHK_EMAIL  // ← CAMBIAR value por text
                         }]
                     },
                     { 
-                        "fill": [{  // ← ARRAY con corchetes
+                        "fill": [{
                             "selector": "input[type='password']", 
                             "selector_type": "css",
-                            "value": process.env.CHK_PASSWORD 
+                            "text": process.env.CHK_PASSWORD  // ← CAMBIAR value por text
                         }]
                     },
                     { 
@@ -418,7 +418,7 @@ app.get('/api/test-login-simple', async (req, res) => {
             'timeout': '30000'
         });
 
-        console.log('🔄 Probando SOLO login con fill como array...');
+        console.log('🔄 Probando con text en lugar de value...');
         const response = await fetch(scrapingbeeUrl + '?' + params);
         
         if (!response.ok) {
@@ -430,7 +430,7 @@ app.get('/api/test-login-simple', async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: '✅ Login con fill como array funcionó!',
+            message: '✅ Login con text funcionó!',
             html_length: html.length,
             html_preview: html.substring(0, 1000)
         });

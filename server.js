@@ -1,72 +1,94 @@
-// AGREGA ESTO AL INICIO del server.js
+// server.js - VERSIÓN CORREGIDA
 const { execSync } = require('child_process');
 const fs = require('fs');
 
-// Verificar e instalar dependencias automáticamente
-function installDependencies() {
+// ==================== INSTALACIÓN SEGURA ====================
+console.log('🔧 INICIANDO SERVIDOR...');
+
+function safeRequire(moduleName) {
     try {
-        console.log('📦 Verificando dependencias...');
-        
-        // Verificar si node_modules existe
-        if (!fs.existsSync('./node_modules/express')) {
-            console.log('🔧 Instalando dependencias faltantes...');
-            execSync('npm install', { stdio: 'inherit' });
-            console.log('✅ Dependencias instaladas');
-        } else {
-            console.log('✅ Dependencias ya instaladas');
-        }
+        console.log(`📦 Cargando: ${moduleName}`);
+        return require(moduleName);
     } catch (error) {
-        console.error('❌ Error instalando dependencias:', error);
-        process.exit(1);
+        if (error.code === 'MODULE_NOT_FOUND') {
+            console.log(`⚠️ Módulo ${moduleName} no encontrado, instalando...`);
+            try {
+                execSync(`npm install ${moduleName} --no-save`, { stdio: 'inherit' });
+                console.log(`✅ ${moduleName} instalado`);
+                return require(moduleName);
+            } catch (installError) {
+                console.error(`💥 Error instalando ${moduleName}:`, installError);
+                // NO usar process.exit() - dejar que el servidor continúe
+                return null;
+            }
+        }
+        throw error;
     }
 }
 
-// Ejecutar instalación
-installDependencies();
+// Cargar módulos de forma segura
+const express = safeRequire('express');
+const cors = safeRequire('cors');
+const puppeteer = safeRequire('puppeteer');
 
+if (!express) {
+    console.log('🚨 Express no disponible - instalando todas las dependencias...');
+    try {
+        execSync('npm install express cors puppeteer --production', { stdio: 'inherit' });
+        console.log('✅ Todas las dependencias instaladas');
+    } catch (error) {
+        console.error('💥 Error crítico:', error);
+    }
+}
 
-const express = require('express');
-const cors = require('cors');
-const puppeteer = require('puppeteer');
+// Re-cargar módulos después de instalación
+const expressFinal = require('express');
+const corsFinal = require('cors'); 
+const puppeteerFinal = require('puppeteer');
 
-const app = express();
+console.log('✅ MÓDULOS CARGADOS CORRECTAMENTE');
+
+// ==================== CONFIGURACIÓN EXPRESS ====================
+const app = expressFinal();
 const PORT = process.env.PORT || 3000;
 
 // CORS
-app.use(cors({
+app.use(corsFinal({
     origin: ['https://ciber7erroristaschk.com', 'http://localhost:3000', 'http://127.0.0.1:5500'],
     methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true
 }));
 
-app.options('*', cors());
-app.use(express.json());
+app.options('*', corsFinal());
+app.use(expressFinal.json());
 
-// Health check INMEDIATO
+// ==================== HEALTH CHECKS ====================
 app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+    res.status(200).json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        message: 'Servidor activo con 8GB RAM'
+    });
 });
 
 app.get('/api/health', (req, res) => {
     res.status(200).json({ 
         status: 'healthy', 
         timestamp: new Date().toISOString(),
-        message: 'Backend funcionando'
+        resources: '8 vCPU / 8192 MB'
     });
 });
 
-// Cache para la ruta del navegador
+// ==================== CACHE NAVEGADOR ====================
 let cachedBrowserPath = null;
 
-// Función para encontrar navegador automáticamente
 async function findBrowser() {
     if (cachedBrowserPath !== null) {
         console.log(`✅ Usando navegador cacheado en: ${cachedBrowserPath}`);
         return cachedBrowserPath;
     }
 
-    const fs = require('fs');
     const paths = [
         '/usr/bin/chromium',
         '/usr/bin/chromium-browser', 
@@ -96,7 +118,7 @@ async function findBrowser() {
     return undefined;
 }
 
-// Puppeteer OPTIMIZADO
+// ==================== PUPPETEER OPTIMIZADO ====================
 async function doPuppeteerSearch(bin) {
     let browser;
     
@@ -104,7 +126,7 @@ async function doPuppeteerSearch(bin) {
         const browserPath = await findBrowser();
         console.log('⏳ Iniciando Puppeteer OPTIMIZADO...');
         
-        browser = await puppeteer.launch({
+        browser = await puppeteerFinal.launch({
             executablePath: browserPath,
             headless: "new", 
             args: [
@@ -119,7 +141,7 @@ async function doPuppeteerSearch(bin) {
 
         const page = await browser.newPage();
         
-        // LIMITAR recursos para ahorrar RAM
+        // LIMITAR recursos
         await page.setRequestInterception(true);
         page.on('request', (req) => {
             if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
@@ -190,41 +212,20 @@ async function doPuppeteerSearch(bin) {
     }
 }
 
-// Health check para Northflank Liveness Probe
-app.get('/api/health', (req, res) => {
-    res.status(200).json({ 
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        service: 'extrapolador-backend',
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        version: process.version
-    });
-});
-
-// Health check adicional
-app.get('/health', (req, res) => {
-    res.status(200).json({ 
-        status: 'healthy',
-        timestamp: new Date().toISOString()
-    });
-});
-
-// Ruta principal
+// ==================== RUTAS PRINCIPALES ====================
 app.get('/', (req, res) => {
     res.json({ 
-        message: 'Extrapolador Backend API - Puppeteer Optimizado',
+        message: '🎉 Extrapolador Backend API - CON 8GB RAM',
+        status: '🟢 ONLINE',
+        resources: '8 vCPU / 8192 MB',
         endpoints: {
-            health: '/api/health (GET) - Liveness Probe',
-            health2: '/health (GET) - Health check simple',
-            search: '/api/search-bin (POST) - Búsqueda principal',
+            health: '/api/health (GET)',
+            search: '/api/search-bin (POST)',
             test: '/api/test-puppeteer (GET)'
-        },
-        status: '🟢 ONLINE'
+        }
     });
 });
 
-// Ruta PRINCIPAL
 app.post('/api/search-bin', async (req, res) => {
     const { bin } = req.body;
     
@@ -238,7 +239,7 @@ app.post('/api/search-bin', async (req, res) => {
         const result = await doPuppeteerSearch(bin);
         res.json({
             ...result,
-            source: 'puppeteer_optimized'
+            source: 'puppeteer_8gb_ram'
         });
 
     } catch (error) {
@@ -250,14 +251,13 @@ app.post('/api/search-bin', async (req, res) => {
     }
 });
 
-// Ruta de prueba Puppeteer
 app.get('/api/test-puppeteer', async (req, res) => {
     console.log('🧪 Probando Puppeteer...');
     let browser;
     try {
         const browserPath = await findBrowser();
         
-        browser = await puppeteer.launch({
+        browser = await puppeteerFinal.launch({
             executablePath: browserPath,
             headless: "new",
             args: [
@@ -287,47 +287,12 @@ app.get('/api/test-puppeteer', async (req, res) => {
     }
 });
 
-// Ruta debug Chromium
-app.get('/api/debug-chromium', (req, res) => {
-    const fs = require('fs');
-    
-    try {
-        const paths = [
-            '/usr/bin/chromium',
-            '/usr/bin/chromium-browser', 
-            '/usr/lib/chromium/chromium'
-        ];
-        
-        const results = {};
-        paths.forEach(path => {
-            try {
-                results[path] = {
-                    exists: fs.existsSync(path),
-                    executable: fs.existsSync(path) ? (fs.statSync(path).mode & fs.constants.X_OK) !== 0 : false
-                };
-            } catch (e) {
-                results[path] = { error: e.message };
-            }
-        });
-        
-        res.json({ 
-            paths: results,
-            cachedPath: cachedBrowserPath,
-            environment: process.env.PUPPETEER_EXECUTABLE_PATH
-        });
-        
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Manejo de rutas no encontradas
-app.use('*', (req, res) => {
-    res.status(404).json({ error: 'Ruta no encontrada' });
-});
-
+// ==================== INICIAR SERVIDOR ====================
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Servidor en puerto ${PORT}`);
-    console.log(`🔧 Liveness Probe: /api/health`);
-    console.log(`🔧 Health Check: /health`);
+    console.log(`🎉 🎉 🎉 SERVIDOR ACTIVO en puerto ${PORT}`);
+    console.log(`💪 RECURSOS: 8 vCPU / 8192 MB RAM`);
+    console.log(`🔧 Health: http://0.0.0.0:${PORT}/health`);
+    console.log(`🚀 Ready!`);
 });
+
+console.log('✅ SERVIDOR INICIADO CORRECTAMENTE');

@@ -207,22 +207,34 @@ app.post('/api/search-bin', async (req, res) => {
             'api_key': process.env.SCRAPINGBEE_API_KEY,
             'url': process.env.CHK_URL,
             'render_js': 'true',
-            'js_scenario': JSON.stringify({  // ← CAMBIAR A js_scenario CON JSON
+            'js_scenario': JSON.stringify({
                 "instructions": [
                     { "wait": 2000 },
-                    { "fill": ["input[type='email']", process.env.CHK_EMAIL] },
-                    { "fill": ["input[type='password']", process.env.CHK_PASSWORD] },
-                    { "click": "button[type='submit']" },
+                    { 
+                        "fill": [
+                            { "selector": "input[type='email']", "value": process.env.CHK_EMAIL }
+                        ]
+                    },
+                    { 
+                        "fill": [
+                            { "selector": "input[type='password']", "value": process.env.CHK_PASSWORD }
+                        ]
+                    },
+                    { "click": { "selector": "button[type='submit']" } },
                     { "wait": 3000 },
-                    { "fill": ["input[placeholder*='BIN']", bin] },
+                    { 
+                        "fill": [
+                            { "selector": "input[placeholder*='BIN']", "value": bin }
+                        ]
+                    },
                     { "wait": 1000 },
-                    { "press_key": "Enter" },
+                    { "send_keys": "Enter" },  // ← CORREGIDO: 'send_keys' en lugar de 'press_key'
                     { "wait": 4000 }
                 ]
             }),
             'wait': '8000',
             'timeout': '30000'
-        })
+        });
 
         console.log('🔄 Enviando request a ScrapingBee...');
         const response = await fetch(scrapingbeeUrl + '?' + params);

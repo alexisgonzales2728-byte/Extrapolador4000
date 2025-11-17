@@ -163,12 +163,14 @@ app.post('/api/search-bin', async (req, res) => {
         
         browser = await puppeteer.launch({
             executablePath: browserPath,
+            headless: "new", 
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage'
             ],
-            timeout: 30000
+            protocolTimeout: 60000,  
+            timeout: 60000           
         });
 
         console.log('✅ Puppeteer iniciado');

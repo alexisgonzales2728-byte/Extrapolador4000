@@ -164,7 +164,15 @@ app.post('/api/search-bin', async (req, res) => {
         browser = await puppeteer.launch({
             executablePath: browserPath,
             headless: "new", 
-            args: ['--no-sandbox'], 
+            args: [
+                '--no-sandbox',              // ✅ Esencial
+                '--disable-setuid-sandbox',  // ✅ Esencial  
+                '--disable-dev-shm-usage',   // ✅ Ahorra memoria
+                '--no-first-run',            // ✅ Ahorra memoria
+                '--no-zygote',               // ✅ Ahorra memoria
+                '--single-process',          // ✅ MÁS IMPORTANTE - 1 proceso vs 6
+                '--max-old-space-size=128'   // ✅ LIMITA Node.js
+            ],
             protocolTimeout: 120000,
             timeout: 120000         
         });

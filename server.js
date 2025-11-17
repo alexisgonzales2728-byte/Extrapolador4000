@@ -47,12 +47,13 @@ installDependencies();
 
 // ==================== CARGAR MÓDULOS ====================
 console.log('🔧 Cargando módulos...');
-let express, cors, puppeteer;
+let express, cors, puppeteer, chromium;
 
 try {
     express = require('express');
     cors = require('cors');
-    puppeteer = require('puppeteer');
+    puppeteer = require('puppeteer-core');  // ← CAMBIADO
+    chromium = require('chrome-aws-lambda'); // ← AGREGADO
     console.log('✅ Módulos cargados correctamente');
 } catch (error) {
     console.error('❌ Error cargando módulos:', error.message);
@@ -99,24 +100,10 @@ async function doPuppeteerSearch(bin) {
     try {
         console.log('⏳ Iniciando Puppeteer (con Chromium automático)...');
         
-        // PUPPETEER SIN executablePath - USA SU PROPIO CHROMIUM
         browser = await puppeteer.launch({
-            headless: "new",
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-first-run',
-                '--single-process',
-                '--no-zygote',
-                '--disable-software-rasterizer',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
-                '--disable-features=TranslateUI,BlinkGenPropertyTrees,VizDisplayCompositor',
-                '--memory-pressure-off'
-            ],
+            args: chromium.args,
+            executablePath: await chromium.executablePath,
+            headless: chromium.headless,
             timeout: 60000
         });
 
@@ -296,22 +283,9 @@ app.get('/api/test-puppeteer', async (req, res) => {
     let browser;
     try {
         browser = await puppeteer.launch({
-            headless: "new",
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-first-run',
-                '--single-process',
-                '--no-zygote',
-                '--disable-software-rasterizer',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
-                '--disable-features=TranslateUI,BlinkGenPropertyTrees,VizDisplayCompositor',
-                '--memory-pressure-off'
-            ],
+            args: chromium.args,
+            executablePath: await chromium.executablePath, 
+            headless: chromium.headless,
             timeout: 30000
         });
         

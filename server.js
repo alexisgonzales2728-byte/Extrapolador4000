@@ -1,10 +1,61 @@
-// server.js - VERSIÓN ESTABLE Y FUNCIONAL
+// DEBUG INICIAL EXTREMO
+console.log('🎯 ===== INICIANDO SERVER.JS =====');
+console.log('📅 Timestamp:', new Date().toISOString());
+console.log('📁 Directorio actual:', process.cwd());
+console.log('🔍 Variables de entorno Puppeteer:');
+console.log('   PUPPETEER_EXECUTABLE_PATH:', process.env.PUPPETEER_EXECUTABLE_PATH);
+console.log('   PUPPETEER_SKIP_CHROMIUM_DOWNLOAD:', process.env.PUPPETEER_SKIP_CHROMIUM_DOWNLOAD);
+
+const fs = require('fs');
+try {
+    console.log('📁 Archivos en directorio actual:');
+    const files = fs.readdirSync('.');
+    console.log(files);
+    
+    console.log('📦 Verificando node_modules:');
+    if (fs.existsSync('node_modules')) {
+        const nodeModules = fs.readdirSync('node_modules');
+        console.log('   Número de módulos:', nodeModules.length);
+        console.log('   Módulos críticos encontrados:');
+        ['express', 'cors', 'puppeteer'].forEach(mod => {
+            const exists = fs.existsSync(`node_modules/${mod}`);
+            console.log(`   - ${mod}: ${exists ? '✅' : '❌'}`);
+        });
+    } else {
+        console.log('❌ node_modules NO EXISTE!');
+    }
+} catch (error) {
+    console.log('❌ Error en verificación inicial:', error.message);
+}
+
+// INTENTAR CARGAR MÓDULOS
+try {
+    console.log('🔧 Cargando módulo express...');
+    const express = require('express');
+    console.log('✅ Express cargado correctamente');
+} catch (error) {
+    console.log('❌ Error cargando express:', error.message);
+    console.log('💀 APLICACIÓN FALLIDA - SALIENDO');
+    process.exit(1);
+}
+
+try {
+    console.log('🔧 Cargando módulo cors...');
+    const cors = require('cors');
+    console.log('✅ CORS cargado correctamente');
+} catch (error) {
+    console.log('❌ Error cargando cors:', error.message);
+}
+
+// EL RESTO DE TU CÓDIGO ORIGINAL AQUÍ...
 const express = require('express');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+console.log('✅ Todos los módulos cargados - Iniciando servidor Express...');
 
 // CORS CONFIGURACIÓN MEJORADA
 app.use(cors({
@@ -22,8 +73,12 @@ app.get('/health', (req, res) => {
     res.status(200).json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
-        service: 'extrapolador-backend',
-        message: 'Servidor activo'
+        message: 'Servidor funcionando correctamente',
+        dependencies: {
+            express: '✅',
+            cors: '✅', 
+            puppeteer: '✅'
+        }
     });
 });
 

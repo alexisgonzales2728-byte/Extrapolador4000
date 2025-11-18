@@ -192,8 +192,10 @@ async function doPuppeteerSearch(bin) {
 
         // Buscar BIN
         console.log('🎯 Buscando BIN:', bin);
+        await new Promise(resolve => setTimeout(resolve, 10000));
         await page.waitForSelector('input[placeholder="Buscar por BIN de 6 dígitos..."]', { timeout: 10000 });
-        await page.type('input[placeholder="Buscar por BIN de 6 dígitos..."]', bin, { delay: 20 });
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        await page.type('input[placeholder="Buscar por BIN de 6 dígitos..."]', bin, { delay: 5000 });
         await new Promise(resolve => setTimeout(resolve, 10000));
 
         // Extraer datos

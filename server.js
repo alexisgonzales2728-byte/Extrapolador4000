@@ -59,6 +59,11 @@ async function findBrowser() {
         return cachedBrowserPath;
     }
 
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+        cachedBrowserPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        return cachedBrowserPath;
+    }
+
     const fs = require('fs');
     const paths = [
         '/usr/bin/chromium',

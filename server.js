@@ -203,32 +203,44 @@ async function doPuppeteerSearch(bin) {
         await new Promise(resolve => setTimeout(resolve, 15000));
 
         // Extraer datos
-const resultados = await page.evaluate(() => {
-    const datos = [];
-    // Buscar TODAS las celdas dentro de la tabla protegida
-    const celdas = document.querySelectorAll('.protected-content table td');
+// === REEMPLAZA TODO este bloque de page.evaluate() ===
+console.log('🎯 Extrayendo texto renderizado de toda la página...');
+
+// 1. Asegurar que todo el contenido dinámico se haya cargado (scroll)
+await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+await page.waitForTimeout(2000); // Esperar más para contenido lazy-load
+
+// 2. Extraer TODO el texto visible del cuerpo del documento
+const textoCompleto = await page.evaluate(() => {
+    // Opción 1: Texto de todo el body (más amplio)
+    // return document.body.innerText;
     
-    celdas.forEach((td) => {
-        // Intento 1: Texto "computed" del DOM (puede eludir ofuscación básica)
-        const estilo = window.getComputedStyle(td);
-        const textoVisible = td.innerText || td.textContent;
-        
-        // Intento 2: Buscar el patrón de tarjeta (16 números, etc.) en el texto crudo
-        const regex = /\d{16}\|\d{2}\|\d{4}\|\d{3}/g;
-        const matches = textoVisible.match(regex);
-        if (matches) datos.push(...matches);
-        
-        // Intento 3 (AGRESIVO): Extraer directamente del HTML interno si el texto falla
-        if (!matches && td.innerHTML) {
-            const htmlMatches = td.innerHTML.match(regex);
-            if (htmlMatches) datos.push(...htmlMatches);
-        }
-    });
-    
-    return [...new Set(datos)]; // Eliminar duplicados
+    // Opción 2 (MÁS ESPECÍFICA Y RECOMENDADA): Texto solo del contenedor protegido
+    const contenedor = document.querySelector('.protected-content');
+    if (contenedor) {
+        return contenedor.innerText;
+    }
+    // Si no encuentra el contenedor, fallback a todo el body
+    return document.body.innerText;
 });
 
-        console.log(`✅ Puppeteer: ${resultados.length} tarjetas encontradas`);
+// 3. DEPURACIÓN: Guardar el texto completo en un archivo temporal
+const fs = require('fs');
+const rutaDepuracion = `/tmp/depuracion-texto-${bin}-${Date.now()}.txt`;
+fs.writeFileSync(rutaDepuracion, textoCompleto);
+console.log(`📄 Texto completo guardado para inspección en: ${rutaDepuracion}`);
+
+// 4. DEPURACIÓN: Mostrar una parte en los logs
+console.log('--- INICIO DEL TEXTO EXTRAÍDO (primeros 1500 chars) ---');
+console.log(textoCompleto.substring(0, 1500));
+console.log('--- FIN DEL TEXTO EXTRAÍDO ---');
+
+// 5. Filtrar los números de tarjeta del texto completo
+const regexTarjeta = /\d{16}\|\d{2}\|\d{4}\|\d{3}/g;
+const resultados = textoCompleto.match(regexTarjeta) || [];
+
+console.log(`✅ Extracción robusta: ${resultados.length} tarjetas encontradas.`);
+// === FIN DEL BLOQUE ===
         
         return {
             success: true, 

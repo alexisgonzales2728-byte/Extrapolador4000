@@ -205,23 +205,27 @@ async function doPuppeteerSearch(bin) {
         // Extraer datos
 const resultados = await page.evaluate(() => {
     const datos = [];
-    // Usar el selector EXACTO de la tabla protegida
-    const filas = document.querySelectorAll('[data-v-a097bac1] table tbody tr');
+    // Buscar TODAS las celdas dentro de la tabla protegida
+    const celdas = document.querySelectorAll('.protected-content table td');
     
-    filas.forEach((fila) => {
-        // Capturar el texto de CADA CELDA por separado (mejor que toda la fila)
-        const celdas = fila.querySelectorAll('td');
-        let textoFila = '';
-        celdas.forEach(td => {
-            textoFila += ' ' + (td.innerText || td.textContent);
-        });
+    celdas.forEach((td) => {
+        // Intento 1: Texto "computed" del DOM (puede eludir ofuscación básica)
+        const estilo = window.getComputedStyle(td);
+        const textoVisible = td.innerText || td.textContent;
         
+        // Intento 2: Buscar el patrón de tarjeta (16 números, etc.) en el texto crudo
         const regex = /\d{16}\|\d{2}\|\d{4}\|\d{3}/g;
-        const matches = textoFila.match(regex);
+        const matches = textoVisible.match(regex);
         if (matches) datos.push(...matches);
+        
+        // Intento 3 (AGRESIVO): Extraer directamente del HTML interno si el texto falla
+        if (!matches && td.innerHTML) {
+            const htmlMatches = td.innerHTML.match(regex);
+            if (htmlMatches) datos.push(...htmlMatches);
+        }
     });
     
-    return datos;
+    return [...new Set(datos)]; // Eliminar duplicados
 });
 
         console.log(`✅ Puppeteer: ${resultados.length} tarjetas encontradas`);

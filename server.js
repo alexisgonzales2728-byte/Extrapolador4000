@@ -110,33 +110,41 @@ let cachedBrowserPath = null;
 
 // FUNCIÓN PARA ENCONTRAR NAVEGADOR
 async function findBrowser() {
-    if (cachedBrowserPath) {
-        return cachedBrowserPath;
-    }
-
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-        cachedBrowserPath = process.env.PUPPETEER_EXECUTABLE_PATH;
-        return cachedBrowserPath;
-    }
-
+    console.log('🔍 Buscando navegador...');
     const fs = require('fs');
-    const paths = [
+    
+    // 1. INTENTO PRINCIPAL: Usar la ruta interna de Puppeteer (la que descarga postinstall)
+    try {
+        const puppeteer = require('puppeteer');
+        const puppeteerPath = puppeteer.executablePath();
+        console.log('   Puppeteer sugiere la ruta:', puppeteerPath);
+        if (fs.existsSync(puppeteerPath)) {
+            console.log('✅ Navegador encontrado vía Puppeteer.');
+            return puppeteerPath;
+        }
+    } catch (error) {
+        console.log('⚠️  No se pudo obtener la ruta de Puppeteer:', error.message);
+    }
+    
+    // 2. INTENTO SECUNDARIO: Rutas comunes del sistema (por si acaso)
+    console.log('🔍 Buscando en rutas del sistema...');
+    const systemPaths = [
         '/usr/bin/chromium',
         '/usr/bin/chromium-browser',
-        '/usr/lib/chromium/chromium'
+        '/usr/bin/google-chrome-stable'
     ];
     
-    for (const path of paths) {
-        try {
-            if (fs.existsSync(path)) {
-                cachedBrowserPath = path;
-                return path;
-            }
-        } catch (error) {
-            continue;
+    for (const path of systemPaths) {
+        if (fs.existsSync(path)) {
+            console.log(`✅ Navegador encontrado en sistema: ${path}`);
+            return path;
         }
     }
     
+    // 3. FALLO TOTAL
+    console.error('❌ No se pudo encontrar ningún navegador.');
+    console.error('   Asegúrate de que la variable NPM_CONFIG_PRODUCTION=false está configurada.');
+    console.error('   Y de que el script postinstall se ejecutó durante el build.');
     return undefined;
 }
 
@@ -147,21 +155,30 @@ async function doPuppeteerSearch(bin) {
     try {
         console.log('⏳ Iniciando Puppeteer...');
         
-        const browserPath = await findBrowser();
+        // 1. Definir una ruta de caché EXPLÍCITA dentro del espacio de trabajo
+        const cacheDirectory = process.env.PUPPETEER_CACHE_DIR || '/tmp/puppeteer_cache';
+        const fs = require('fs');
+        if (!fs.existsSync(cacheDirectory)) {
+            fs.mkdirSync(cacheDirectory, { recursive: true });
+        }
+        console.log('📁 Usando caché en:', cacheDirectory);
+
+        // 2. Configurar las opciones de lanzamiento CON la ruta de caché
         const launchOptions = {
-            headless: "new",
+            headless: 'new',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-gpu'
             ],
-            timeout: 30000
+            timeout: 30000,
+            // CLAVE: Indicarle a Puppeteer dónde está el caché descargado
+            cacheDirectory: cacheDirectory, // Esta línea es nueva
+            // También forzar el uso del ejecutable descargado
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || 
+                            '/home/heroku/.cache/puppeteer/chrome/linux-143.0.7499.169/chrome-linux64/chrome'
         };
-
-        if (browserPath) {
-            launchOptions.executablePath = browserPath;
-        }
 
         browser = await puppeteer.launch(launchOptions);
         console.log('✅ Puppeteer iniciado correctamente');

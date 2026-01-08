@@ -195,51 +195,53 @@ async function doPuppeteerSearch(bin) {
             page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 })
         ]);
 
-        // Buscar BIN
-        console.log('🎯 Buscando BIN:', bin);
-        await page.waitForSelector('input[placeholder="Buscar por BIN de 6 dígitos..."]', { timeout: 10000 });
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await page.type('input[placeholder="Buscar por BIN de 6 dígitos..."]', bin, { delay: 500 });
-        await new Promise(resolve => setTimeout(resolve, 15000));
+// Buscar BIN
+console.log('🎯 Buscando BIN:', bin);
+await page.waitForSelector('input[placeholder="Buscar por BIN de 6 dígitos..."]', { timeout: 10000 });
+await page.type('input[placeholder="Buscar por BIN de 6 dígitos..."]', bin, { delay: 500 });
 
-        // Extraer datos
-// === REEMPLAZA TODO este bloque de page.evaluate() ===
-console.log('🎯 Extrayendo texto renderizado de toda la página...');
+// === ESPERA CRÍTICA: Esperar a que aparezcan las tarjetas ===
+console.log('⏳ Esperando a que carguen las tarjetas (hasta 15 segundos)...');
+try {
+    // Opción A: Esperar a que la tabla tenga filas (más específico)
+    await page.waitForFunction(() => {
+        const filas = document.querySelectorAll('.protected-content table tbody tr');
+        // Esperar a que haya al menos 1 fila CON datos (no solo el esqueleto)
+        return filas.length > 0 && filas[0].textContent.trim().length > 10;
+    }, { 
+        timeout: 15000, // Máximo 15 segundos
+        polling: 500    // Verificar cada 500ms
+    });
+    console.log('✅ Tarjetas cargadas y visibles.');
+} catch (error) {
+    console.log('⚠️  No se detectaron tarjetas en 15 segundos, continuando...');
+    // Podrías tomar un screenshot aquí para debug
+    await page.screenshot({ path: `/tmp/timeout-${bin}.png` });
+}
 
-// 1. Asegurar que todo el contenido dinámico se haya cargado (scroll)
+// === AHORA SÍ extraer el texto (cuando las tarjetas ya están) ===
+console.log('🎯 Extrayendo texto renderizado...');
+
+// 1. Scroll final para asegurar renderizado completo
 await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-await new Promise(resolve => setTimeout(resolve, 2000));
-// 2. Extraer TODO el texto visible del cuerpo del documento
+await new Promise(resolve => setTimeout(resolve, 1000));
+
+// 2. Extraer texto SOLO del área de resultados
 const textoCompleto = await page.evaluate(() => {
-    // Opción 1: Texto de todo el body (más amplio)
-    // return document.body.innerText;
-    
-    // Opción 2 (MÁS ESPECÍFICA Y RECOMENDADA): Texto solo del contenedor protegido
     const contenedor = document.querySelector('.protected-content');
-    if (contenedor) {
-        return contenedor.innerText;
-    }
-    // Si no encuentra el contenedor, fallback a todo el body
-    return document.body.innerText;
+    return contenedor ? contenedor.innerText : document.body.innerText;
 });
 
-// 3. DEPURACIÓN: Guardar el texto completo en un archivo temporal
-const fs = require('fs');
-const rutaDepuracion = `/tmp/depuracion-texto-${bin}-${Date.now()}.txt`;
-fs.writeFileSync(rutaDepuracion, textoCompleto);
-console.log(`📄 Texto completo guardado para inspección en: ${rutaDepuracion}`);
+// 3. DEPURACIÓN (acortada)
+console.log('--- INICIO TEXTO (primeros 800 chars) ---');
+console.log(textoCompleto.substring(0, 800));
+console.log('--- FIN TEXTO ---');
 
-// 4. DEPURACIÓN: Mostrar una parte en los logs
-console.log('--- INICIO DEL TEXTO EXTRAÍDO (primeros 1500 chars) ---');
-console.log(textoCompleto.substring(0, 1500));
-console.log('--- FIN DEL TEXTO EXTRAÍDO ---');
-
-// 5. Filtrar los números de tarjeta del texto completo
+// 4. Filtrar tarjetas
 const regexTarjeta = /\d{16}\|\d{2}\|\d{4}\|\d{3}/g;
 const resultados = textoCompleto.match(regexTarjeta) || [];
 
-console.log(`✅ Extracción robusta: ${resultados.length} tarjetas encontradas.`);
-// === FIN DEL BLOQUE ===
+console.log(`✅ Resultados: ${resultados.length} tarjetas encontradas.`);
         
         return {
             success: true, 

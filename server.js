@@ -146,7 +146,9 @@ async function doPuppeteerSearch(bin) {
     
     try {
         console.log('⏳ Iniciando Puppeteer...');
-        
+        const browserPath = await findBrowser();
+        console.log('📍 Ruta del navegador obtenida:', browserPath);
+
 const launchOptions = {
     headless: 'new', // El nuevo headless es menos detectable
     args: [
@@ -205,17 +207,13 @@ const launchOptions = {
     ignoreHTTPSErrors: true,
     // Tiempo de espera más largo para lanzamiento
     timeout: 60000,
-    // Ruta del ejecutable (ya la tienes)
-    executablePath: browserPath
 };
-
-        // SOLO agrega executablePath si findBrowser encontró uno
+        // 2. Agregar ruta solo si existe (CORREGIDO: variable correcta)
         if (browserPath) {
             launchOptions.executablePath = browserPath;
+            console.log('✅ Ruta configurada en launchOptions.');
         } else {
-            // Si findBrowser() retorna undefined, deja que Puppeteer use su lógica por defecto
-            // (aunque con PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true, esto fallará)
-            console.warn('⚠️  No se especificó ruta de navegador, Puppeteer usará su lógica por defecto.');
+            console.warn('⚠️  No se encontró ruta específica, Puppeteer usará su lógica por defecto.');
         }
 
         browser = await puppeteer.launch(launchOptions);

@@ -219,6 +219,44 @@ try {
     await page.screenshot({ path: `/tmp/timeout-${bin}.png` });
 }
 
+// === DIAGNÓSTICO: Screenshot y análisis del DOM ===
+console.log('📸 Tomando screenshot del estado actual...');
+// 1. Screenshot de toda la página
+const screenshotBuffer = await page.screenshot({ encoding: 'base64', fullPage: true });
+console.log('🖼️  Screenshot (BASE64 - pega en decoder online):');
+console.log('data:image/png;base64,' + screenshotBuffer);
+
+// 2. Análisis DETALLADO del HTML real de la tabla
+const estadoTabla = await page.evaluate(() => {
+    const contenedor = document.querySelector('.protected-content');
+    if (!contenedor) return '❌ No hay .protected-content';
+    
+    const tabla = contenedor.querySelector('table');
+    if (!tabla) return '❌ No hay tabla dentro de .protected-content';
+    
+    const filas = tabla.querySelectorAll('tbody tr');
+    const infoFilas = [];
+    
+    filas.forEach((fila, index) => {
+        infoFilas.push(`Fila ${index}:`);
+        // a) Texto visible
+        infoFilas.push(`  Texto: "${fila.textContent?.trim()}"`);
+        // b) Número de celdas
+        infoFilas.push(`  Celdas: ${fila.querySelectorAll('td').length}`);
+        // c) HTML interno (primeros 150 chars)
+        infoFilas.push(`  HTML: ${fila.innerHTML?.substring(0, 150)}...`);
+        // d) ¿Tiene clases específicas?
+        infoFilas.push(`  Clases: ${fila.className}`);
+    });
+    
+    return `📊 Estado tabla:
+  • Filas totales: ${filas.length}
+${infoFilas.join('\n')}`;
+});
+
+console.log(estadoTabla);
+// === FIN DIAGNÓSTICO ===
+
 // === AHORA SÍ extraer el texto (cuando las tarjetas ya están) ===
 console.log('🎯 Extrayendo texto renderizado...');
 

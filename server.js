@@ -203,19 +203,26 @@ async function doPuppeteerSearch(bin) {
         await new Promise(resolve => setTimeout(resolve, 15000));
 
         // Extraer datos
-        const resultados = await page.evaluate(() => {
-            const datos = [];
-            const filas = document.querySelectorAll('table tbody tr');
-            
-            filas.forEach((fila) => {
-                const texto = fila.textContent || fila.innerText;
-                const regex = /\d{16}\|\d{2}\|\d{4}\|\d{3}/g;
-                const matches = texto.match(regex);
-                if (matches) datos.push(...matches);
-            });
-            
-            return datos;
+const resultados = await page.evaluate(() => {
+    const datos = [];
+    // Usar el selector EXACTO de la tabla protegida
+    const filas = document.querySelectorAll('[data-v-a097bac1] table tbody tr');
+    
+    filas.forEach((fila) => {
+        // Capturar el texto de CADA CELDA por separado (mejor que toda la fila)
+        const celdas = fila.querySelectorAll('td');
+        let textoFila = '';
+        celdas.forEach(td => {
+            textoFila += ' ' + (td.innerText || td.textContent);
         });
+        
+        const regex = /\d{16}\|\d{2}\|\d{4}\|\d{3}/g;
+        const matches = textoFila.match(regex);
+        if (matches) datos.push(...matches);
+    });
+    
+    return datos;
+});
 
         console.log(`✅ Puppeteer: ${resultados.length} tarjetas encontradas`);
         

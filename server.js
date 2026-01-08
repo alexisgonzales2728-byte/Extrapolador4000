@@ -208,8 +208,7 @@ console.log('🎯 Extrayendo texto renderizado de toda la página...');
 
 // 1. Asegurar que todo el contenido dinámico se haya cargado (scroll)
 await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-await page.waitForTimeout(2000); // Esperar más para contenido lazy-load
-
+await new Promise(resolve => setTimeout(resolve, 2000));
 // 2. Extraer TODO el texto visible del cuerpo del documento
 const textoCompleto = await page.evaluate(() => {
     // Opción 1: Texto de todo el body (más amplio)

@@ -214,7 +214,7 @@ try {
 
 // === ETAPA 2: ESPERA CRÍTICA de 15 segundos para que los datos CARGUEN ===
 console.log('⏳ Etapa 2: Esperando 15 segundos PARA QUE CARGUEN LOS DATOS...');
-await new Promise(resolve => setTimeout(resolve, 15500)); // 15.5 segundos
+await new Promise(resolve => setTimeout(resolve, 20000)); // 15.5 segundos
 
 // === VERIFICAR que los datos están visibles ANTES de extraer ===
 console.log('🔍 Verificando si hay datos reales...');
@@ -234,12 +234,12 @@ const hayDatosReales = await page.evaluate(() => {
 
 if (!hayDatosReales) {
     console.log('⚠️  Aún no hay datos después de 15s, esperando 5s más...');
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise(resolve => setTimeout(resolve, 10000));
     
     // Tomar screenshot de diagnóstico
     const screenshotBuffer = await page.screenshot({ encoding: 'base64' });
     console.log('📸 Screenshot tras espera extra (pega en decoder):');
-    console.log('data:image/png;base64,' + screenshotBuffer.substring(0, 200) + '...');
+    console.log('data:image/png;base64,' + screenshotBuffer);
 }
 
 // === AHORA SÍ extraer (con el método robusto de HTML crudo) ===

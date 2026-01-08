@@ -200,87 +200,72 @@ console.log('🎯 Buscando BIN:', bin);
 await page.waitForSelector('input[placeholder="Buscar por BIN de 6 dígitos..."]', { timeout: 10000 });
 await page.type('input[placeholder="Buscar por BIN de 6 dígitos..."]', bin, { delay: 500 });
 
-// === ESPERA CRÍTICA: Esperar a que aparezcan las tarjetas ===
-console.log('⏳ Esperando a que carguen las tarjetas (hasta 15 segundos)...');
+// === ETAPA 1: Esperar a que la búsqueda SE INICIE (aparece "Cargando...") ===
+console.log('⏳ Etapa 1: Esperando indicador de búsqueda iniciada...');
 try {
-    // Opción A: Esperar a que la tabla tenga filas (más específico)
     await page.waitForFunction(() => {
-        const filas = document.querySelectorAll('.protected-content table tbody tr');
-        // Esperar a que haya al menos 1 fila CON datos (no solo el esqueleto)
-        return filas.length > 0 && filas[0].textContent.trim().length > 10;
-    }, { 
-        timeout: 15000, // Máximo 15 segundos
-        polling: 500    // Verificar cada 500ms
-    });
-    console.log('✅ Tarjetas cargadas y visibles.');
+        const textoPagina = document.body.innerText || '';
+        return textoPagina.includes('Cargando');
+    }, { timeout: 5000 });
+    console.log('✅ Búsqueda iniciada (apareció "Cargando...").');
 } catch (error) {
-    console.log('⚠️  No se detectaron tarjetas en 15 segundos, continuando...');
-    // Podrías tomar un screenshot aquí para debug
-    await page.screenshot({ path: `/tmp/timeout-${bin}.png` });
+    console.log('⚠️  No apareció "Cargando..." en 5s, continuando...');
 }
 
-// === DIAGNÓSTICO: Screenshot y análisis del DOM ===
-console.log('📸 Tomando screenshot del estado actual...');
-// 1. Screenshot de toda la página
-const screenshotBuffer = await page.screenshot({ encoding: 'base64', fullPage: true });
-console.log('🖼️  Screenshot (BASE64 - pega en decoder online):');
-console.log('data:image/png;base64,' + screenshotBuffer);
+// === ETAPA 2: ESPERA CRÍTICA de 15 segundos para que los datos CARGUEN ===
+console.log('⏳ Etapa 2: Esperando 15 segundos PARA QUE CARGUEN LOS DATOS...');
+await new Promise(resolve => setTimeout(resolve, 15500)); // 15.5 segundos
 
-// 2. Análisis DETALLADO del HTML real de la tabla
-const estadoTabla = await page.evaluate(() => {
-    const contenedor = document.querySelector('.protected-content');
-    if (!contenedor) return '❌ No hay .protected-content';
+// === VERIFICAR que los datos están visibles ANTES de extraer ===
+console.log('🔍 Verificando si hay datos reales...');
+const hayDatosReales = await page.evaluate(() => {
+    const filas = document.querySelectorAll('.protected-content table tbody tr');
+    if (filas.length === 0) return false;
     
-    const tabla = contenedor.querySelector('table');
-    if (!tabla) return '❌ No hay tabla dentro de .protected-content';
-    
-    const filas = tabla.querySelectorAll('tbody tr');
-    const infoFilas = [];
-    
-    filas.forEach((fila, index) => {
-        infoFilas.push(`Fila ${index}:`);
-        // a) Texto visible
-        infoFilas.push(`  Texto: "${fila.textContent?.trim()}"`);
-        // b) Número de celdas
-        infoFilas.push(`  Celdas: ${fila.querySelectorAll('td').length}`);
-        // c) HTML interno (primeros 150 chars)
-        infoFilas.push(`  HTML: ${fila.innerHTML?.substring(0, 150)}...`);
-        // d) ¿Tiene clases específicas?
-        infoFilas.push(`  Clases: ${fila.className}`);
-    });
-    
-    return `📊 Estado tabla:
-  • Filas totales: ${filas.length}
-${infoFilas.join('\n')}`;
+    // Verificar que al menos una fila tenga texto que parezca una tarjeta
+    for (let fila of filas) {
+        const texto = fila.textContent || '';
+        if (/\d{16}.*\d{2}.*\d{4}.*\d{3}/.test(texto)) {
+            return true;
+        }
+    }
+    return false;
 });
 
-console.log(estadoTabla);
-// === FIN DIAGNÓSTICO ===
+if (!hayDatosReales) {
+    console.log('⚠️  Aún no hay datos después de 15s, esperando 5s más...');
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    // Tomar screenshot de diagnóstico
+    const screenshotBuffer = await page.screenshot({ encoding: 'base64' });
+    console.log('📸 Screenshot tras espera extra (pega en decoder):');
+    console.log('data:image/png;base64,' + screenshotBuffer.substring(0, 200) + '...');
+}
 
-// === AHORA SÍ extraer el texto (cuando las tarjetas ya están) ===
-console.log('🎯 Extrayendo texto renderizado...');
-
-// 1. Scroll final para asegurar renderizado completo
-await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-await new Promise(resolve => setTimeout(resolve, 1000));
-
-// 2. Extraer texto SOLO del área de resultados
-const textoCompleto = await page.evaluate(() => {
+// === AHORA SÍ extraer (con el método robusto de HTML crudo) ===
+console.log('🎯 Extrayendo datos...');
+const htmlCrudo = await page.evaluate(() => {
     const contenedor = document.querySelector('.protected-content');
-    return contenedor ? contenedor.innerText : document.body.innerText;
+    return contenedor ? contenedor.innerHTML : document.body.innerHTML;
 });
 
-// 3. DEPURACIÓN (acortada)
-console.log('--- INICIO TEXTO (primeros 800 chars) ---');
-console.log(textoCompleto.substring(0, 800));
-console.log('--- FIN TEXTO ---');
+// Patrón flexible (acepta cualquier separador entre grupos)
+const regexFlexible = /(\d{16}).*?(\d{2}).*?(\d{4}).*?(\d{3})/g;
+let coincidencias = [];
+let match;
+while ((match = regexFlexible.exec(htmlCrudo)) !== null) {
+    coincidencias.push(`${match[1]}|${match[2]}|${match[3]}|${match[4]}`);
+}
 
-// 4. Filtrar tarjetas
-const regexTarjeta = /\d{16}\|\d{2}\|\d{4}\|\d{3}/g;
-const resultados = textoCompleto.match(regexTarjeta) || [];
+// Si falla, intentar patrón con espacios/guiones
+if (coincidencias.length === 0) {
+    const regexTarjetaEspaciada = /(\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4})/g;
+    const tarjetasEspaciadas = htmlCrudo.match(regexTarjetaEspaciada) || [];
+    coincidencias = tarjetasEspaciadas.map(t => t.replace(/[- ]/g, '|'));
+}
 
-console.log(`✅ Resultados: ${resultados.length} tarjetas encontradas.`);
-        
+const resultados = [...new Set(coincidencias)];
+console.log(`✅ Resultado final: ${resultados.length} tarjetas encontradas.`);
         return {
             success: true, 
             count: resultados.length,

@@ -147,17 +147,67 @@ async function doPuppeteerSearch(bin) {
     try {
         console.log('⏳ Iniciando Puppeteer...');
         
-        const browserPath = await findBrowser(); // Usa la función simplificada
-        const launchOptions = {
-            headless: "new",
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu'
-            ],
-            timeout: 30000
-        };
+const launchOptions = {
+    headless: 'new', // El nuevo headless es menos detectable
+    args: [
+        // Argumentos básicos de seguridad/rendimiento
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--disable-webgl',
+        
+        // === ARGUMENTOS CRÍTICOS ANTI-DETECCIÓN ===
+        '--disable-blink-features=AutomationControlled', // Oculta la automatización
+        '--disable-features=IsolateOrigins,site-per-process', // Reduce "huella"
+        '--disable-web-security', // Permite ciertas solicitudes cruzadas
+        '--disable-device-discovery-notifications',
+        '--disable-component-extensions-with-background-pages',
+        '--disable-default-apps',
+        '--disable-extensions',
+        '--disable-background-networking',
+        '--disable-sync',
+        '--disable-translate',
+        '--metrics-recording-only',
+        '--mute-audio',
+        '--no-default-browser-check',
+        '--no-first-run',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-background-networking',
+        '--disable-client-side-phishing-detection',
+        '--disable-component-update',
+        '--disable-domain-reliability',
+        '--disable-breakpad',
+        '--disable-ipc-flooding-protection',
+        '--disable-notifications',
+        '--disable-hang-monitor',
+        '--disable-prompt-on-repost',
+        '--disable-domain-reliability',
+        '--password-store=basic',
+        '--use-mock-keychain',
+        '--force-device-scale-factor=1',
+        '--disable-infobars'
+    ],
+    // Ocultar la bandera 'navigator.webdriver'
+    ignoreDefaultArgs: ['--enable-automation'],
+    // Forzar un viewport común
+    defaultViewport: { 
+        width: 1366, 
+        height: 768,
+        deviceScaleFactor: 1,
+        isMobile: false,
+        hasTouch: false
+    },
+    // Deshabilitar el caché del servicio (puede ser detectable)
+    ignoreHTTPSErrors: true,
+    // Tiempo de espera más largo para lanzamiento
+    timeout: 60000,
+    // Ruta del ejecutable (ya la tienes)
+    executablePath: browserPath
+};
 
         // SOLO agrega executablePath si findBrowser encontró uno
         if (browserPath) {
@@ -172,6 +222,60 @@ async function doPuppeteerSearch(bin) {
         console.log('✅ Puppeteer iniciado correctamente');
 
         const page = await browser.newPage();
+
+        // === CONFIGURAR PÁGINA PARA SER MÁS HUMANA ===
+console.log('👤 Configurando página para evitar detección...');
+
+// 1. User-Agent realista (Windows + Chrome actual)
+await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+// 2. Configurar idioma y zona horaria
+await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'language', { get: () => 'es-ES' });
+    Object.defineProperty(navigator, 'languages', { get: () => ['es-ES', 'es', 'en-US', 'en'] });
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] }); // Fake plugins
+    Object.defineProperty(navigator, 'webdriver', { get: () => false }); // CRÍTICO
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+    
+    // Timezone
+    Object.defineProperty(Intl.DateTimeFormat.prototype.resolvedOptions, 'timeZone', {
+        get: () => 'America/Mexico_City'
+    });
+});
+
+// 3. Inyectar WebGL y Canvas fingerprint falso (importante)
+await page.evaluateOnNewDocument(() => {
+    const getParameter = WebGLRenderingContext.prototype.getParameter;
+    WebGLRenderingContext.prototype.getParameter = function(parameter) {
+        if (parameter === 37445) return 'NVIDIA Corporation'; // UNMASKED_VENDOR_WEBGL
+        if (parameter === 37446) return 'NVIDIA GeForce GTX 1070'; // UNMASKED_RENDERER_WEBGL
+        return getParameter.apply(this, arguments);
+    };
+    
+    // Canvas fingerprinting
+    const toDataURL = HTMLCanvasElement.prototype.toDataURL;
+    HTMLCanvasElement.prototype.toDataURL = function(type) {
+        if (type === 'image/png') {
+            return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+        }
+        return toDataURL.apply(this, arguments);
+    };
+});
+
+// 4. Configurar headers extra
+await page.setExtraHTTPHeaders({
+    'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Cache-Control': 'max-age=0'
+});
+
+
         await page.setDefaultNavigationTimeout(30000);
         await page.setDefaultTimeout(30000);
 

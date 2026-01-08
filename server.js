@@ -195,7 +195,7 @@ async function doPuppeteerSearch(bin) {
         await page.waitForSelector('input[placeholder="Buscar por BIN de 6 dígitos..."]', { timeout: 10000 });
         await new Promise(resolve => setTimeout(resolve, 1000));
         await page.type('input[placeholder="Buscar por BIN de 6 dígitos..."]', bin, { delay: 500 });
-        await new Promise(resolve => setTimeout(resolve, 6000));
+        await new Promise(resolve => setTimeout(resolve, 15000));
 
         // Extraer datos
         const resultados = await page.evaluate(() => {
